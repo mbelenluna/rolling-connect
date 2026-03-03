@@ -1,0 +1,244 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { findEligibleInterpreters } from '@/lib/matching';
+import { cancelStaleJobs } from '@/lib/cancel-job';
+import { z } from 'zod';
+
+const OFFER_TIMEOUT_SEC = 60;
+
+const schema = z.object({
+  interpretationType: z.enum(['human', 'ai']).default('human'),
+  serviceType: z.enum(['OPI', 'VRI']),
+  sourceLanguage: z.string(),
+  targetLanguage: z.string(),
+  specialty: z.string(),
+  industry: z.string().optional(),
+  costCenter: z.string().optional(),
+  certificationLevel: z.string().optional(),
+  yearsExperience: z.number().optional(),
+  securityClearance: z.boolean().optional(),
+  genderPreference: z.string().optional(),
+  dialect: z.string().optional(),
+  notes: z.string().optional(),
+  estimatedDurationMinutes: z.number().default(15),
+  urgency: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  recordingConsent: z.boolean().default(false),
+  scheduleType: z.enum(['now', 'scheduled']),
+  scheduledAt: z.string().datetime().optional().nullable(),
+  timeZone: z.string().optional(),
+  organizationId: z.string(),
+});
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const role = (session.user as { role?: string }).role;
+  if (role !== 'client' && role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  if (role === 'client') {
+    const clientUser = await prisma.user.findUnique({
+      where: { id: (session.user as { id?: string }).id },
+      select: { approvedAt: true, rejectedAt: true },
+    });
+    if (!clientUser?.approvedAt || clientUser.rejectedAt) {
+      return NextResponse.json(
+        { error: 'CLIENT_PENDING_APPROVAL' },
+        { status: 403 }
+      );
+    }
+  }
+
+  try {
+    const body = await req.json();
+    const data = schema.parse(body);
+
+    const orgMember = await prisma.organizationMember.findFirst({
+      where: { organizationId: data.organizationId, userId: (session.user as { id?: string }).id },
+    });
+    if (!orgMember) return NextResponse.json({ error: 'Organization access denied' }, { status: 403 });
+
+    const isAI = data.interpretationType === 'ai';
+
+    const request = await prisma.interpretationRequest.create({
+      data: {
+        organizationId: data.organizationId,
+        createdByUserId: (session.user as { id?: string }).id!,
+        interpretationType: data.interpretationType,
+        serviceType: data.serviceType,
+        sourceLanguage: data.sourceLanguage,
+        targetLanguage: data.targetLanguage,
+        specialty: data.specialty,
+        industry: data.industry,
+        costCenter: data.costCenter,
+        certificationLevel: data.certificationLevel,
+        yearsExperience: data.yearsExperience,
+        securityClearance: data.securityClearance ?? false,
+        genderPreference: data.genderPreference,
+        dialect: data.dialect,
+        notes: data.notes,
+        estimatedDurationMinutes: data.estimatedDurationMinutes,
+        urgency: data.urgency,
+        recordingConsent: data.recordingConsent,
+        scheduleType: data.scheduleType,
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+        timeZone: data.timeZone,
+        status: isAI ? 'assigned' : 'matching',
+      },
+    });
+
+    if (isAI) {
+      const job = await prisma.job.create({
+        data: {
+          requestId: request.id,
+          status: 'assigned',
+          assignedInterpreterId: null,
+        },
+      });
+      await prisma.call.create({
+        data: {
+          jobId: job.id,
+          roomId: `room_${job.id}_${Date.now()}`,
+        },
+      });
+      return NextResponse.json({
+        id: request.id,
+        jobId: job.id,
+        status: 'assigned',
+        interpretationType: 'ai',
+        interpretersMatched: 0,
+        createdAt: request.createdAt,
+      });
+    }
+
+    cancelStaleJobs().catch(() => {});
+
+    const interpreters = await findEligibleInterpreters({
+      sourceLanguage: data.sourceLanguage,
+      targetLanguage: data.targetLanguage,
+      specialty: data.specialty,
+      dialect: data.dialect,
+      certificationLevel: data.certificationLevel,
+      yearsExperience: data.yearsExperience,
+      securityClearance: data.securityClearance,
+      genderPreference: data.genderPreference,
+      scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+    });
+
+    const offerExpiresAt = new Date(Date.now() + OFFER_TIMEOUT_SEC * 1000);
+    const offeredToIds = interpreters.map((i) => i.id);
+
+    const job = await prisma.job.create({
+      data: {
+        requestId: request.id,
+        status: 'offered',
+        offerExpiresAt,
+        offeredToIds,
+      },
+    });
+
+    await prisma.interpretationRequest.update({
+      where: { id: request.id },
+      data: { status: 'offered' },
+    });
+
+    const io = (global as { io?: { to: (room: string) => { emit: (e: string, p: unknown) => void } } }).io;
+    const offerPayload = {
+      jobId: job.id,
+      requestId: request.id,
+      languagePair: `${data.sourceLanguage} → ${data.targetLanguage}`,
+      specialty: data.specialty,
+      estimatedDurationMinutes: data.estimatedDurationMinutes,
+      notes: data.notes,
+      urgency: data.urgency,
+      expiresAt: offerExpiresAt.toISOString(),
+    };
+
+    interpreters.forEach((i) => {
+      io?.to(`user:${i.id}`).emit('offer_created', offerPayload);
+    });
+
+    return NextResponse.json({
+      id: request.id,
+      jobId: job.id,
+      status: interpreters.length > 0 ? 'offered' : 'no_match',
+      interpretersMatched: interpreters.length,
+      createdAt: request.createdAt,
+      estimatedMatchTime: OFFER_TIMEOUT_SEC,
+    });
+  } catch (e) {
+    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors }, { status: 400 });
+    throw e;
+  }
+}
+
+export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const orgId = searchParams.get('organizationId');
+  const status = searchParams.get('status');
+  const startMonth = searchParams.get('startMonth'); // YYYY-MM (legacy)
+  const endMonth = searchParams.get('endMonth'); // YYYY-MM (legacy)
+  const startDateParam = searchParams.get('startDate'); // YYYY-MM-DD
+  const endDateParam = searchParams.get('endDate'); // YYYY-MM-DD
+
+  const where: Record<string, unknown> = {};
+  if (orgId) where.organizationId = orgId;
+  if (status) where.status = status as never;
+
+  // Filter by call ended date range (for client history reports)
+  if (status === 'completed') {
+    if (startDateParam && endDateParam) {
+      // New date range filter (YYYY-MM-DD)
+      const startDate = new Date(startDateParam + 'T00:00:00.000Z');
+      const endDate = new Date(endDateParam + 'T23:59:59.999Z');
+      where.jobs = {
+        some: {
+          call: {
+            endedAt: { gte: startDate, lte: endDate },
+          },
+        },
+      };
+    } else if (startMonth && (endMonth || startMonth)) {
+      // Legacy month filter (YYYY-MM)
+      const rangeEndMonth = endMonth || startMonth;
+      const [startY, startM] = startMonth.split('-').map(Number);
+      const [endY, endM] = rangeEndMonth.split('-').map(Number);
+      const startDate = new Date(startY, startM - 1, 1);
+      const endDate = new Date(endY, endM, 0, 23, 59, 59, 999);
+      where.jobs = {
+        some: {
+          call: {
+            endedAt: { gte: startDate, lte: endDate },
+          },
+        },
+      };
+    }
+  }
+
+  const role = (session.user as { role?: string }).role;
+  const userId = (session.user as { id?: string }).id;
+  if (role === 'client') {
+    where.createdByUserId = userId;
+    const memberships = await prisma.organizationMember.findMany({
+      where: { userId },
+      select: { organizationId: true },
+    });
+    const orgIds = memberships.map((m) => m.organizationId);
+    if (orgIds.length) where.organizationId = orgId && orgIds.includes(orgId) ? orgId : orgIds.length === 1 ? orgIds[0] : { in: orgIds };
+  }
+
+  const requests = await prisma.interpretationRequest.findMany({
+    where,
+    include: {
+      jobs: { include: { assignedInterpreter: { select: { name: true, id: true } }, call: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: (startDateParam && endDateParam) || (startMonth && endMonth) ? 500 : 50,
+  });
+
+  return NextResponse.json(requests);
+}

@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  client
+  interpreter
+  admin
+}
+
+enum InterpreterStatus {
+  online
+  offline
+  busy
+}
+
+enum ServiceType {
+  OPI
+  VRI
+}
+
+enum Urgency {
+  low
+  normal
+  high
+  urgent
+}
+
+enum RequestStatus {
+  pending
+  matching
+  offered
+  assigned
+  in_call
+  completed
+  canceled
+}
+
+enum JobStatus {
+  pending
+  offered
+  assigned
+  in_call
+  completed
+  expired
+  canceled
+}
+
+enum OrgMemberRole {
+  owner
+  member
+  billing
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  passwordHash        String    @map("password_hash")
+  role                UserRole
+  name                String
+  approvedAt          DateTime? @map("approved_at")
+  rejectedAt          DateTime? @map("rejected_at")
+  emailConfirmedAt    DateTime? @map("email_confirmed_at")
+  registrationPath    String?   @map("registration_path") // 'contract' | 'gocardless'
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  interpreterProfile   InterpreterProfile?
+  interpreterAvailability InterpreterAvailability?
+  organizationMembers  OrganizationMember[]
+  createdRequests      InterpretationRequest[] @relation("CreatedBy")
+  assignedJobs          Job[]                   @relation("AssignedInterpreter")
+  auditLogs            AuditLog[]
+  emailConfirmationToken EmailConfirmationToken?
+}
+
+model Organization {
+  id            String   @id @default(uuid())
+  name          String
+  billingEmail  String?  @map("billing_email")
+  billingAddress Json?   @map("billing_address")
+  costCenters   Json?    @map("cost_centers")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  members       OrganizationMember[]
+  requests      InterpretationRequest[]
+  invoices      Invoice[]
+}
+
+model OrganizationMember {
+  id             String      @id @default(uuid())
+  organizationId String      @map("organization_id")
+  userId         String      @map("user_id")
+  role           OrgMemberRole
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+model InterpreterPool {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  interpreters InterpreterProfile[]
+}
+
+model InterpreterProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+  languagePairs       Json      @map("language_pairs")
+  specialties         Json
+  certifications      Json?
+  timeZone            String?   @map("time_zone")
+  maxConcurrentJobs   Int       @default(1) @map("max_concurrent_jobs")
+  poolId              String?   @map("pool_id")
+  equipmentTestedAt   DateTime? @map("equipment_tested_at")
+  yearsExperience     Int?      @map("years_experience")
+  securityClearance   Boolean   @default(false) @map("security_clearance")
+  gender             String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pool  InterpreterPool? @relation(fields: [poolId], references: [id])
+}
+
+model InterpreterAvailability {
+  id            String            @id @default(uuid())
+  userId        String            @unique @map("user_id")
+  status        InterpreterStatus @default(offline)
+  workingHours  Json?             @map("working_hours")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum InterpretationType {
+  human
+  ai
+}
+
+model InterpretationRequest {
+  id                      String        @id @default(uuid())
+  organizationId          String        @map("organization_id")
+  createdByUserId         String        @map("created_by_user_id")
+  interpretationType      InterpretationType @default(human) @map("interpretation_type")
+  serviceType             ServiceType   @map("service_type")
+  sourceLanguage          String        @map("source_language")
+  targetLanguage          String        @map("target_language")
+  specialty               String
+  industry                String?
+  costCenter              String?       @map("cost_center")
+  certificationLevel      String?       @map("certification_level")
+  yearsExperience         Int?          @map("years_experience")
+  securityClearance       Boolean       @default(false) @map("security_clearance")
+  genderPreference        String?       @map("gender_preference")
+  dialect                 String?
+  notes                   String?
+  glossaryUrl             String?       @map("glossary_url")
+  estimatedDurationMinutes Int          @default(15) @map("estimated_duration_minutes")
+  urgency                 Urgency      @default(normal)
+  recordingConsent        Boolean       @default(false) @map("recording_consent")
+  scheduleType            String       @map("schedule_type")
+  scheduledAt             DateTime?    @map("scheduled_at")
+  timeZone                String?       @map("time_zone")
+  status                  RequestStatus @default(pending)
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  jobs         Job[]
+}
+
+model Job {
+  id                    String    @id @default(uuid())
+  requestId             String    @map("request_id")
+  status                JobStatus @default(pending)
+  assignedInterpreterId  String?   @map("assigned_interpreter_id")
+  offerExpiresAt        DateTime? @map("offer_expires_at")
+  offeredToIds          Json?     @map("offered_to_ids")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  request InterpretationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  assignedInterpreter User?      @relation("AssignedInterpreter", fields: [assignedInterpreterId], references: [id])
+  call                Call?
+}
+
+model Call {
+  id               String    @id @default(uuid())
+  jobId            String    @unique @map("job_id")
+  roomId           String    @map("room_id")
+  startedAt        DateTime? @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  durationSeconds  Int?      @map("duration_seconds")
+  interpreterNotes String?   @map("interpreter_notes")
+  clientRating     Int?      @map("client_rating")
+  clientComments   String?   @map("client_comments")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Language {
+  id     String  @id @default(uuid())
+  code   String  @unique
+  name   String
+  active Boolean @default(true)
+}
+
+model Specialty {
+  id     String  @id @default(uuid())
+  code   String  @unique
+  name   String
+  active Boolean @default(true)
+}
+
+model Rate {
+  id               String      @id @default(uuid())
+  serviceType      ServiceType @map("service_type")
+  specialty        String
+  perMinuteCents   Int         @map("per_minute_cents")
+  minimumMinutes   Int         @default(15) @map("minimum_minutes")
+  minimumChargeCents Int       @map("minimum_charge_cents")
+  rushFeePercent   Int         @default(0) @map("rush_fee_percent")
+  effectiveFrom    DateTime    @map("effective_from")
+  effectiveTo      DateTime?   @map("effective_to")
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  periodStart    DateTime @map("period_start")
+  periodEnd      DateTime @map("period_end")
+  totalCents     Int      @map("total_cents")
+  status         String   @default("draft")
+  lineItems      Json?    @map("line_items")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model EmailConfirmationToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_confirmation_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+}
