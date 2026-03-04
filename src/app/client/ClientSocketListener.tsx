@@ -23,7 +23,9 @@ export default function ClientSocketListener() {
         router.replace(`/client/call/${payload.requestId}`);
       }
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [session?.user, router]);
 
   return null;
