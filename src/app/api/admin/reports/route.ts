@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       return {
         id: j.id,
         requestId: j.requestId,
-        date: dateIso,
+        date: new Date(dateIso).toISOString(),
         clientId: j.request.createdByUserId,
         clientName: j.request.createdBy?.name ?? '—',
         clientEmail: j.request.createdBy?.email ?? '—',
