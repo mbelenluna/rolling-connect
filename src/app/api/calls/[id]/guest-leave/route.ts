@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { ejectDailyParticipants } from '@/lib/daily';
 import { verifyInviteToken } from '@/lib/invite-token';
 import { z } from 'zod';
 
@@ -20,6 +18,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { prisma } = await import('@/lib/prisma');
+    const { ejectDailyParticipants } = await import('@/lib/daily');
+
     const { id } = await params;
     let body: unknown;
     try {

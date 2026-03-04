@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/calls/[id]/guest-info
@@ -11,6 +10,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { prisma } = await import('@/lib/prisma');
   const { id: callId } = await params;
 
   const call = await prisma.call.findFirst({

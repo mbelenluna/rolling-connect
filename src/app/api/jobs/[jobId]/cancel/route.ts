@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { cancelJobAndRequest } from '@/lib/cancel-job';
 
 /**
  * Interpreter can cancel their assigned job (e.g. when call fails). Frees themselves.
@@ -13,6 +9,11 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const { getServerSession } = await import('next-auth');
+  const { authOptions } = await import('@/lib/auth');
+  const { prisma } = await import('@/lib/prisma');
+  const { cancelJobAndRequest } = await import('@/lib/cancel-job');
+
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

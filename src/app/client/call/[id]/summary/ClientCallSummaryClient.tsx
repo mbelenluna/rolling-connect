@@ -29,7 +29,7 @@ export default function ClientCallSummaryClient() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`/api/requests/${requestId}`)
+    fetch(`/api/requests/${requestId}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((req) => {
         if (req.error) throw new Error(req.error);

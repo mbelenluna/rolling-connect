@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { createDailyMeetingToken } from '@/lib/daily';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +6,11 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const { getServerSession } = await import('next-auth');
+  const { authOptions } = await import('@/lib/auth');
+  const { prisma } = await import('@/lib/prisma');
+  const { createDailyMeetingToken } = await import('@/lib/daily');
+
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

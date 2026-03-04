@@ -15,7 +15,7 @@ export default function AdminJobsClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/jobs')
+    fetch('/api/admin/jobs', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setJobs)
       .catch(console.error)

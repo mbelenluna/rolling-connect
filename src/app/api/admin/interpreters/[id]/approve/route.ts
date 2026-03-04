@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { sendApprovalEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { getServerSession } = await import('next-auth');
+    const { authOptions } = await import('@/lib/auth');
+    const { prisma } = await import('@/lib/prisma');
+    const { sendApprovalEmail } = await import('@/lib/email');
+
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if ((session.user as { role?: string }).role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
