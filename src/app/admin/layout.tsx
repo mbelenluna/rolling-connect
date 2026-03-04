@@ -4,6 +4,8 @@ import Image from 'next/image';
 import AdminNav from './AdminNav';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminLayout({
   children,
 }: { children: React.ReactNode }) {

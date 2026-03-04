@@ -1,6 +1,8 @@
 import { requireRole } from '@/lib/rbac';
 import ClientCallLayout from './ClientCallLayout';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ClientLayout({
   children,
 }: { children: React.ReactNode }) {

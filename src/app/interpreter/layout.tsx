@@ -4,6 +4,8 @@ import Image from 'next/image';
 import InterpreterNav from './InterpreterNav';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
+export const dynamic = 'force-dynamic';
+
 export default async function InterpreterLayout({
   children,
 }: { children: React.ReactNode }) {
