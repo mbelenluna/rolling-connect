@@ -22,8 +22,9 @@ export async function requireRole(allowed: Role | Role[]) {
 }
 
 /**
- * Require auth + role + active subscription (admin bypasses billing).
- * Redirects to /subscribe if subscription not ACTIVE.
+ * Require auth + role + email verified (clients only) + active subscription (admin bypasses).
+ * Clients: redirects to /verify-email if not verified, /subscribe if subscription not ACTIVE.
+ * Interpreters: redirects to /subscribe if subscription not ACTIVE.
  */
 export async function requireBilling(allowed: Role | Role[]) {
   const session = await requireRole(allowed);
@@ -35,12 +36,12 @@ export async function requireBilling(allowed: Role | Role[]) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { subscriptionStatus: true },
+    select: { emailConfirmedAt: true, subscriptionStatus: true },
   });
 
-  if (!user || user.subscriptionStatus !== 'ACTIVE') {
-    redirect('/subscribe');
-  }
+  if (!user) redirect('/login');
+  if (role === 'client' && !user.emailConfirmedAt) redirect('/verify-email');
+  if (user.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   return session;
 }
 

@@ -117,15 +117,16 @@ function LoginContent() {
 
         if (role === 'client') {
           setError('');
-          router.push('/login?registered=client');
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
           return;
         }
       }
 
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
       const result = await signIn('credentials', { email, password, redirect: false });
       if (result?.error) throw new Error(result.error || 'Invalid credentials');
 
-      router.push('/dashboard');
+      router.push(callbackUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {

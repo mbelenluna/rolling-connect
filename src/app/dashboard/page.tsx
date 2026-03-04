@@ -22,22 +22,19 @@ export default async function DashboardPage() {
         subscriptionStatus: true,
       },
     });
-    if (user?.emailConfirmedAt && !user.approvedAt && !user.registrationPath) {
+    if (!user?.emailConfirmedAt) redirect('/verify-email');
+    if (user.emailConfirmedAt && !user.approvedAt && !user.registrationPath) {
       redirect('/complete-registration');
     }
-    if (user?.subscriptionStatus !== 'ACTIVE') {
-      redirect('/subscribe');
-    }
+    if (user.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   }
 
-  if ((role === 'interpreter') && userId) {
+  if (role === 'interpreter' && userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { subscriptionStatus: true },
     });
-    if (user?.subscriptionStatus !== 'ACTIVE') {
-      redirect('/subscribe');
-    }
+    if (user?.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   }
 
   redirect(getRoleRedirect(role || ''));

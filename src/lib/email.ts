@@ -26,18 +26,12 @@ export async function sendEmailConfirmation(to: string, name: string, token: str
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #334155; max-width: 600px; margin: 0 auto; padding: 24px;">
-  <p>Dear ${escapeHtml(name)},</p>
+  <p>Welcome to Rolling Connect!</p>
   
-  <p>Thank you for registering with Rolling Connect. Please confirm your email address by clicking the link below:</p>
+  <p>Please <a href="${escapeHtml(confirmUrl)}" style="color: #2A61B5;">click here</a> to verify your email address and start using your account.</p>
   
-  <p><a href="${escapeHtml(confirmUrl)}" style="display: inline-block; padding: 12px 24px; background-color: #2A61B5; color: white; text-decoration: none; border-radius: 8px;">Confirm email address</a></p>
-  
-  <p>Or copy and paste this link into your browser:</p>
+  <p>If you are having trouble accessing the link, copy and paste this URL in your browser:</p>
   <p style="word-break: break-all; font-size: 14px;">${escapeHtml(confirmUrl)}</p>
-  
-  <p>This link will expire in 24 hours.</p>
-  
-  <p>If you did not create an account, you can safely ignore this email.</p>
   
   <p>Kind regards,<br>
   Rolling Translations<br>

@@ -27,5 +27,5 @@ export async function GET(req: NextRequest) {
   ]);
 
   const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : req.nextUrl.origin);
-  return NextResponse.redirect(new URL(`/login?confirmed=1&email=${encodeURIComponent(record.user.email)}`, baseUrl));
+  return NextResponse.redirect(new URL(`/login?confirmed=1&email=${encodeURIComponent(record.user.email)}&callbackUrl=${encodeURIComponent('/subscribe')}`, baseUrl));
 }

@@ -99,6 +99,10 @@ export const translations = {
 
     registrationSuccessTitle: 'Registration successful',
     registrationSuccessMessage: 'Please check your email to confirm your address. Once confirmed, sign in to complete your registration.',
+    verifyEmailTitle: 'Please verify your email',
+    verifyEmailSubtitle: 'We\'ve sent you an email to confirm your account.',
+    verifyEmailMessage: 'We\'ve sent an email to your address. Please click the link in the email to verify your account and start using Rolling Connect. You will not be able to use the platform until your email is verified.',
+    verifyEmailCheckSpam: 'If you don\'t see the email, check your spam folder.',
     backToSignIn: 'Back to sign in',
     emailConfirmedMessage: 'Your email address has been confirmed.',
     signInToContinue: 'Sign in below to continue.',
@@ -379,6 +383,10 @@ export const translations = {
 
     registrationSuccessTitle: 'Registro exitoso',
     registrationSuccessMessage: 'Por favor revise su correo para confirmar su dirección. Una vez confirmada, inicie sesión para completar el registro.',
+    verifyEmailTitle: 'Por favor verifique su correo electrónico',
+    verifyEmailSubtitle: 'Le hemos enviado un correo para confirmar su cuenta.',
+    verifyEmailMessage: 'Hemos enviado un correo a su dirección. Haga clic en el enlace del correo para verificar su cuenta y comenzar a usar Rolling Connect. No podrá usar la plataforma hasta que verifique su correo.',
+    verifyEmailCheckSpam: 'Si no ve el correo, revise su carpeta de spam.',
     backToSignIn: 'Volver a iniciar sesión',
     emailConfirmedMessage: 'Su dirección de correo ha sido confirmada.',
     signInToContinue: 'Inicie sesión a continuación para continuar.',
@@ -655,6 +663,10 @@ export const translations = {
 
     registrationSuccessTitle: '注册成功',
     registrationSuccessMessage: '请查收邮件以确认您的邮箱地址。确认后，请登录以完成注册。',
+    verifyEmailTitle: '请验证您的邮箱',
+    verifyEmailSubtitle: '我们已向您发送了一封确认账户的邮件。',
+    verifyEmailMessage: '我们已向您的邮箱发送了一封邮件。请点击邮件中的链接以验证您的账户并开始使用 Rolling Connect。在验证邮箱之前，您将无法使用该平台。',
+    verifyEmailCheckSpam: '如果您没有收到邮件，请检查您的垃圾邮件文件夹。',
     backToSignIn: '返回登录',
     emailConfirmedMessage: '您的邮箱地址已确认。',
     signInToContinue: '请在下方登录以继续。',
