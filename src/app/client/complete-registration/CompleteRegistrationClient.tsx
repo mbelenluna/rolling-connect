@@ -7,8 +7,6 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
-const GOCARDLESS_URL = 'https://pay.gocardless.com/BRT0002QRVBRXRG';
-
 export default function CompleteRegistrationClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -41,7 +39,14 @@ export default function CompleteRegistrationClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'gocardless' }),
       });
-      window.location.href = GOCARDLESS_URL;
+      const res = await fetch('/api/billing/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || t('somethingWentWrong'));
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
+      throw new Error(t('somethingWentWrong'));
     } catch {
       setError(t('somethingWentWrong'));
       setStep('question');
@@ -84,7 +89,7 @@ export default function CompleteRegistrationClient() {
         <h1 className="text-2xl font-bold text-slate-900 mb-4">{t('accountPendingApproval')}</h1>
         <p className="text-slate-600 mb-6">{t('contractSubmittedMessage')}</p>
         <Link
-          href="/client"
+          href="/dashboard"
           className="inline-block px-6 py-2 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700"
         >
           {t('backToDashboard')}

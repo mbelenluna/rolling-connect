@@ -15,10 +15,28 @@ export default async function DashboardPage() {
   if (role === 'client' && userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { emailConfirmedAt: true, approvedAt: true, registrationPath: true },
+      select: {
+        emailConfirmedAt: true,
+        approvedAt: true,
+        registrationPath: true,
+        subscriptionStatus: true,
+      },
     });
     if (user?.emailConfirmedAt && !user.approvedAt && !user.registrationPath) {
-      redirect('/client/complete-registration');
+      redirect('/complete-registration');
+    }
+    if (user?.subscriptionStatus !== 'ACTIVE') {
+      redirect('/subscribe');
+    }
+  }
+
+  if ((role === 'interpreter') && userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { subscriptionStatus: true },
+    });
+    if (user?.subscriptionStatus !== 'ACTIVE') {
+      redirect('/subscribe');
     }
   }
 

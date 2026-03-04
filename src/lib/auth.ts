@@ -124,7 +124,9 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/login',
+    error: '/login',
   },
+  debug: process.env.NEXTAUTH_DEBUG === '1',
   session: { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   secret: process.env.NEXTAUTH_SECRET,
 };

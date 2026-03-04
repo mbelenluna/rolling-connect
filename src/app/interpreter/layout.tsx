@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/rbac';
+import { requireBilling } from '@/lib/rbac';
 import Link from 'next/link';
 import Image from 'next/image';
 import InterpreterNav from './InterpreterNav';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function InterpreterLayout({
   children,
 }: { children: React.ReactNode }) {
-  await requireRole('interpreter');
+  await requireBilling('interpreter');
 
   return (
     <div className="min-h-screen bg-slate-50">

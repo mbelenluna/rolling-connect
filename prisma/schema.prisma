@@ -57,18 +57,31 @@ enum OrgMemberRole {
   billing
 }
 
+enum SubscriptionStatus {
+  INCOMPLETE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model User {
-  id                  String    @id @default(uuid())
-  email               String    @unique
-  passwordHash        String    @map("password_hash")
-  role                UserRole
-  name                String
-  approvedAt          DateTime? @map("approved_at")
-  rejectedAt          DateTime? @map("rejected_at")
-  emailConfirmedAt    DateTime? @map("email_confirmed_at")
-  registrationPath    String?   @map("registration_path") // 'contract' | 'gocardless'
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                       String             @id @default(uuid())
+  email                    String             @unique
+  passwordHash             String            @map("password_hash")
+  role                     UserRole
+  name                     String
+  approvedAt               DateTime?          @map("approved_at")
+  rejectedAt               DateTime?          @map("rejected_at")
+  emailConfirmedAt         DateTime?          @map("email_confirmed_at")
+  registrationPath          String?            @map("registration_path") // 'contract' | 'gocardless'
+  goCardlessCustomerId     String?            @map("gocardless_customer_id")
+  goCardlessMandateId      String?            @map("gocardless_mandate_id")
+  goCardlessBankAccountId  String?            @map("gocardless_bank_account_id")
+  subscriptionStatus       SubscriptionStatus @default(INCOMPLETE) @map("subscription_status")
+  subscriptionPlan         String?            @map("subscription_plan")
+  currentPeriodEnd         DateTime?          @map("current_period_end")
+  createdAt                DateTime           @default(now()) @map("created_at")
+  updatedAt                DateTime           @updatedAt @map("updated_at")
 
   interpreterProfile   InterpreterProfile?
   interpreterAvailability InterpreterAvailability?
@@ -276,4 +289,26 @@ model AuditLog {
   createdAt  DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id])
+}
+
+model GoCardlessWebhookEvent {
+  id           String   @id @default(uuid())
+  eventId      String   @unique @map("event_id")
+  resourceType String   @map("resource_type")
+  action       String
+  payloadJson  Json?    @map("payload_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("gocardless_webhook_events")
+}
+
+model GoCardlessRedirectSession {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  sessionToken   String    @unique @map("session_token")
+  redirectFlowId String?   @unique @map("redirect_flow_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  completedAt    DateTime? @map("completed_at")
+
+  @@map("gocardless_redirect_sessions")
 }

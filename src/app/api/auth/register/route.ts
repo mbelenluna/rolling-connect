@@ -15,13 +15,36 @@ const schema = z.object({
 
 export const dynamic = 'force-dynamic';
 
+function jsonError(message: string, status = 500) {
+  return NextResponse.json({ ok: false, error: message }, { status });
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { email, password, name, role, organization } = schema.parse(body);
+    let body: unknown;
+    try {
+      const text = await req.text();
+      if (!text?.trim()) {
+        if (process.env.NODE_ENV !== 'production') console.warn('[register] Empty request body');
+        return jsonError('Invalid request body', 400);
+      }
+      body = JSON.parse(text);
+    } catch {
+      if (process.env.NODE_ENV !== 'production') console.warn('[register] Invalid JSON body');
+      return jsonError('Invalid JSON body', 400);
+    }
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { email, password, name, role, organization } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
+    if (existing) return NextResponse.json({ ok: false, error: 'Email already registered' }, { status: 400 });
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -59,9 +82,11 @@ export async function POST(req: Request) {
       sendInterpreterWelcomeEmail(email, name).catch((e) => console.error('Interpreter welcome email failed:', e));
     }
 
-    return NextResponse.json(user);
+    if (process.env.NODE_ENV !== 'production') console.log('[register] Created user', user.id, user.email);
+    return NextResponse.json({ ok: true, id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (e) {
-    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors }, { status: 400 });
-    throw e;
+    console.error('[register] Error:', e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : 'Registration failed';
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

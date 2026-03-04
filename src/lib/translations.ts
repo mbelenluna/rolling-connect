@@ -119,6 +119,16 @@ export const translations = {
     startRequesting: 'Start requesting interpretation',
     submit: 'Submit',
 
+    // Billing / Subscribe
+    billingSetupTitle: 'Payment setup required',
+    billingSetupSubtitle: 'Complete your Direct Debit setup to access the platform.',
+    billingSetupDescription:
+      'You need to set up a Direct Debit mandate to use Rolling Connect. This is a one-time setup that authorizes us to collect payments for interpretation services.',
+    billingSetupButton: 'Set up payment',
+    billingErrorMissingFlow: 'Invalid return from payment setup. Please try again.',
+    billingErrorInvalidFlow: 'This payment setup link has expired or is invalid. Please start again.',
+    billingErrorConfirmFailed: 'We could not complete your payment setup. Please try again.',
+
     // Nav
     dashboard: 'Dashboard',
     requests: 'Requests',
@@ -389,6 +399,15 @@ export const translations = {
     startRequesting: 'Comenzar a solicitar interpretación',
     submit: 'Enviar',
 
+    billingSetupTitle: 'Configuración de pago requerida',
+    billingSetupSubtitle: 'Complete la configuración de domiciliación bancaria para acceder a la plataforma.',
+    billingSetupDescription:
+      'Debe configurar un mandato de domiciliación bancaria para usar Rolling Connect. Es una configuración única que nos autoriza a cobrar los servicios de interpretación.',
+    billingSetupButton: 'Configurar pago',
+    billingErrorMissingFlow: 'Retorno inválido de la configuración de pago. Inténtelo de nuevo.',
+    billingErrorInvalidFlow: 'Este enlace de configuración ha expirado o no es válido. Comience de nuevo.',
+    billingErrorConfirmFailed: 'No pudimos completar la configuración de pago. Inténtelo de nuevo.',
+
     dashboard: 'Portal',
     requests: 'Solicitudes',
     history: 'Historial',
@@ -655,6 +674,15 @@ export const translations = {
     gocardlessCompleteMessage: '您的账户已批准。现在可以开始申请口译服务。',
     startRequesting: '开始申请口译',
     submit: '提交',
+
+    billingSetupTitle: '需要设置付款',
+    billingSetupSubtitle: '完成直接扣款设置以访问平台。',
+    billingSetupDescription:
+      '您需要设置直接扣款授权才能使用 Rolling Connect。这是一次性设置，授权我们收取口译服务费用。',
+    billingSetupButton: '设置付款',
+    billingErrorMissingFlow: '付款设置返回无效。请重试。',
+    billingErrorInvalidFlow: '此付款设置链接已过期或无效。请重新开始。',
+    billingErrorConfirmFailed: '无法完成您的付款设置。请重试。',
 
     dashboard: '仪表板',
     requests: '申请',

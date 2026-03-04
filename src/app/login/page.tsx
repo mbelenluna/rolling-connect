@@ -30,14 +30,26 @@ function LoginContent() {
 
   useEffect(() => {
     fetch('/api/auth/google-enabled')
-      .then((r) => r.json())
+      .then(async (r) => {
+        const text = await r.text();
+        if (!text) return { enabled: false };
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { enabled: false };
+        }
+      })
       .then((data) => setGoogleEnabled(data.enabled === true))
       .catch(() => setGoogleEnabled(false));
   }, []);
 
   useEffect(() => {
-    if (searchParams.get('error') === 'GoogleSignInClientOnly') {
+    const err = searchParams.get('error');
+    if (err === 'GoogleSignInClientOnly') {
       setError('Google sign-in is available for clients and interpreters only. Admins must use email and password.');
+    } else if (err) {
+      const msg = searchParams.get('errorDescription') || err;
+      setError(msg);
     }
   }, [searchParams]);
 
@@ -85,8 +97,23 @@ function LoginContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, name, role, organization: organization.trim() || undefined }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        const text = await res.text();
+        let data: { ok?: boolean; error?: unknown } = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            setError(`Registration failed (${res.status}): ${text.slice(0, 100)}`);
+            return;
+          }
+        } else {
+          setError(`Registration failed (${res.status}): Empty response from server`);
+          return;
+        }
+        if (!res.ok) {
+          const errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : String(data.error ?? 'Registration failed');
+          throw new Error(errMsg);
+        }
 
         if (role === 'client') {
           setError('');
@@ -96,7 +123,7 @@ function LoginContent() {
       }
 
       const result = await signIn('credentials', { email, password, redirect: false });
-      if (result?.error) throw new Error('Invalid credentials');
+      if (result?.error) throw new Error(result.error || 'Invalid credentials');
 
       router.push('/dashboard');
     } catch (err) {
