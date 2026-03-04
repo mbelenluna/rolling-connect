@@ -119,14 +119,6 @@ export const translations = {
     startRequesting: 'Start requesting interpretation',
     submit: 'Submit',
 
-    // Site access gate
-    gateTitle: 'Access required',
-    gateSubtitle: 'Enter the access code to continue.',
-    gatePasswordLabel: 'Access code',
-    gatePasswordPlaceholder: 'Enter access code',
-    gateSubmit: 'Continue',
-    gateError: 'Invalid access code',
-
     // Nav
     dashboard: 'Dashboard',
     requests: 'Requests',
@@ -397,13 +389,6 @@ export const translations = {
     startRequesting: 'Comenzar a solicitar interpretación',
     submit: 'Enviar',
 
-    gateTitle: 'Acceso requerido',
-    gateSubtitle: 'Ingrese el código de acceso para continuar.',
-    gatePasswordLabel: 'Código de acceso',
-    gatePasswordPlaceholder: 'Ingrese el código de acceso',
-    gateSubmit: 'Continuar',
-    gateError: 'Código de acceso inválido',
-
     dashboard: 'Portal',
     requests: 'Solicitudes',
     history: 'Historial',
@@ -670,13 +655,6 @@ export const translations = {
     gocardlessCompleteMessage: '您的账户已批准。现在可以开始申请口译服务。',
     startRequesting: '开始申请口译',
     submit: '提交',
-
-    gateTitle: '需要访问权限',
-    gateSubtitle: '请输入访问码以继续。',
-    gatePasswordLabel: '访问码',
-    gatePasswordPlaceholder: '请输入访问码',
-    gateSubmit: '继续',
-    gateError: '访问码无效',
 
     dashboard: '仪表板',
     requests: '申请',
