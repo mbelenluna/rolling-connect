@@ -129,7 +129,9 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
       }
       router.replace(summaryHref);
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [session?.user, tokenUrl, dailyError, summaryHref, router]);
 
   // Daily call frame + timer starts when both participants have joined

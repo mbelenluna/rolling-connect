@@ -9,6 +9,7 @@ import { io } from 'socket.io-client';
 import { toAzureLanguage, getLanguageDisplayName, toTranslationTarget, getTranslationLookupKeys } from '@/lib/azure-languages';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
+import type { TranslationRecognitionEventArgs } from 'microsoft-cognitiveservices-speech-sdk';
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -173,7 +174,9 @@ export default function AICallRoom({
       }
       router.replace(summaryHref);
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [session?.user, tokenUrl, dailyError, summaryHref, router, stopMicStream]);
 
   // Daily call frame + Azure recognizer (single recognizer with explicit sourceLang)
@@ -339,12 +342,12 @@ export default function AICallRoom({
         const validReasons = [sdk.ResultReason.TranslatingSpeech, sdk.ResultReason.TranslatedSpeech];
         const isValid = (r: { reason?: number }) => r.reason != null && validReasons.includes(r.reason);
 
-        const getTranslation = (result: { text?: string; translations?: Map<string, string> }) => {
+        const getTranslation = (result: { text?: string; translations?: { get(key: string, def?: string): string } }) => {
           const trans = result.translations;
           if (!trans) return null;
           const sourceText = (result.text ?? '').trim();
           for (const k of getTranslationLookupKeys(target)) {
-            const val = trans.get(k)?.trim();
+            const val = trans.get(k, '')?.trim();
             if (val && val !== sourceText) return val;
           }
           return null;
@@ -358,12 +361,12 @@ export default function AICallRoom({
             callFrame.sendAppMessage({ type: 'translation', translation: t, fromSessionId: localId }, '*');
           } catch {}
         };
-        recognizer.recognizing = (_s: unknown, e: { result: { text?: string; translations?: Map<string, string>; reason?: number } }) => {
+        recognizer.recognizing = (_s: unknown, e: TranslationRecognitionEventArgs) => {
           if (!mounted || !isValid(e.result)) return;
           const t = getTranslation(e.result);
           if (t) broadcastTranslation(t);
         };
-        recognizer.recognized = (_s: unknown, e: { result: { text?: string; translations?: Map<string, string>; reason?: number } }) => {
+        recognizer.recognized = (_s: unknown, e: TranslationRecognitionEventArgs) => {
           if (!mounted || !isValid(e.result)) return;
           const t = getTranslation(e.result);
           if (t) broadcastTranslation(t);
@@ -374,8 +377,8 @@ export default function AICallRoom({
           if (recognizerRef.current !== recognizer) return;
           recognizerRef.current = null;
           try {
-            const p = recognizer.stopContinuousRecognitionAsync?.();
-            if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
+            const p = recognizer.stopContinuousRecognitionAsync?.() as Promise<void> | void | undefined;
+            if (p != null && typeof (p as Promise<unknown>).catch === 'function') {
               (p as Promise<void>).catch(() => {}).finally(() => {
                 recognizer.close?.();
                 stopMicStream();

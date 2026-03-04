@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -45,7 +45,7 @@ function CancelButton({ requestId, onCanceled, t }: { requestId: string; onCance
   );
 }
 
-export default function ClientRequestsPage() {
+function ClientRequestsContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const { locale } = useLanguage();
@@ -78,7 +78,9 @@ export default function ClientRequestsPage() {
         router.replace(`/client/call/${payload.requestId}`);
       }
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [session?.user, router]);
 
   const statusLabel = (s: string) => {
@@ -158,5 +160,13 @@ export default function ClientRequestsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ClientRequestsPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-600">Loading...</div>}>
+      <ClientRequestsContent />
+    </Suspense>
   );
 }
