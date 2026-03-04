@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { getRoleRedirect } from '@/lib/rbac';
 import HomeContent from './HomeContent';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const session = await getServerSession(authOptions);
   if (session?.user) {

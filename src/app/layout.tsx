@@ -6,6 +6,8 @@ import Footer from '@/components/Footer';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Rolling Connect — On-Demand Interpretation',
   description: 'OPI + VRI interpretation platform',

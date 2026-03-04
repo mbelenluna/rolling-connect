@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { getRoleRedirect } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect('/login');
