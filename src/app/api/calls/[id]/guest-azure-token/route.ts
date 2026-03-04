@@ -6,6 +6,8 @@ import { verifyInviteToken } from '@/lib/invite-token';
  * Returns Azure Speech token for guests (no auth required).
  * Requires valid inviteToken from the invite link.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

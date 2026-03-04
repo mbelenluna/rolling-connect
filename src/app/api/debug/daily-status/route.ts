@@ -5,6 +5,8 @@ import { createDailyMeetingToken } from '@/lib/daily';
  * Debug endpoint to verify Daily.co configuration.
  * Visit /api/debug/daily-status to see if env vars are set and token creation works.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const apiKey = process.env.DAILY_API_KEY?.trim();
   const domain = process.env.DAILY_DOMAIN?.trim();

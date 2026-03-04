@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
  * GET /api/calls/[id]/guest-info
  * Public endpoint: returns call metadata for guest join page (no auth required).
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }

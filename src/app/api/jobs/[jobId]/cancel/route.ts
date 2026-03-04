@@ -7,6 +7,8 @@ import { cancelJobAndRequest } from '@/lib/cancel-job';
 /**
  * Interpreter can cancel their assigned job (e.g. when call fails). Frees themselves.
  */
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ jobId: string }> }

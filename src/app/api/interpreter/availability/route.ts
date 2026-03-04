@@ -9,6 +9,8 @@ const schema = z.object({
   workingHours: z.record(z.object({ start: z.string(), end: z.string() })).optional(),
 });
 
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

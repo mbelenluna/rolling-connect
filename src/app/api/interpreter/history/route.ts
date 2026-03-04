@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma';
  * GET /api/interpreter/history
  * Returns completed jobs for the current interpreter with call duration and pay.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

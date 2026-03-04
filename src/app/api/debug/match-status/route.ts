@@ -8,6 +8,8 @@ type LanguagePair = { source?: string; target?: string };
  * Debug endpoint to verify matching and socket status.
  * Call with ?sourceLanguage=en&targetLanguage=es&specialty=medical
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sourceLanguage = searchParams.get('sourceLanguage') || 'en';

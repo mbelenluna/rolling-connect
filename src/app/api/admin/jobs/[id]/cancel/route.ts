@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { cancelJobAndRequest } from '@/lib/cancel-job';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Admin: Cancel a job to free the interpreter (e.g. for stuck/stale assignments)
  */

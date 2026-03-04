@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { clientChargeCents, interpreterPayCents } from '@/lib/billing';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/admin/reports
  * Returns billing reports for clients and interpreters, grouped by month.

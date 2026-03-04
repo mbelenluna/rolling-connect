@@ -8,6 +8,8 @@ import { cancelStaleJobs } from '@/lib/cancel-job';
  * Polling fallback: get active offers for the current interpreter.
  * Use when Socket.io isn't available or as backup.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

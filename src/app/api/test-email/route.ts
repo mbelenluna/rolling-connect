@@ -5,6 +5,8 @@ import { sendWelcomeEmail } from '@/lib/email';
  * GET /api/test-email?to=your@email.com
  * Sends a test welcome email to verify SendGrid is configured.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const to = searchParams.get('to');

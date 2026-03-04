@@ -9,6 +9,8 @@ const schema = z.object({
   durationSeconds: z.number(),
 });
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/calls/[id]/guest-leave
  * Ends the call when a guest (invite link) leaves. Auth via inviteToken.

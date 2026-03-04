@@ -7,6 +7,8 @@ import { z } from 'zod';
 
 const schema = z.object({ contractDetails: z.string().min(1) });
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as { role?: string }).role !== 'client') {

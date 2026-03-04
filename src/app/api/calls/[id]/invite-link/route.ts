@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { createDailyMeetingToken } from '@/lib/daily';
 import { createInviteToken } from '@/lib/invite-token';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/calls/[id]/invite-link
  * Creates a guest token for the call room so the caller can share an invite link.
