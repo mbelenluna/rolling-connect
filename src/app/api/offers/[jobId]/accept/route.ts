@@ -81,7 +81,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     job: {
-      id: result.job.id,
+      id: jobId,
       status: 'assigned',
       joinToken: `token_${roomId}_${interpreterId}`,
       roomId,
