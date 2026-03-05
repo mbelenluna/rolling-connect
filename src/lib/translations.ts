@@ -137,6 +137,9 @@ export const translations = {
     billingErrorMissingFlow: 'Invalid return from payment setup. Please try again.',
     billingErrorInvalidFlow: 'This payment setup link has expired or is invalid. Please start again.',
     billingErrorConfirmFailed: 'We could not complete your payment setup. Please try again.',
+    interpreterPendingTitle: 'Thank you for your interest',
+    interpreterPendingMessage:
+      'Thank you for your interest in working with us. You should have received an email from info@rolling-translations.com. Please reply with the required information and documentation to begin our collaboration.',
 
     // Nav
     dashboard: 'Dashboard',
@@ -425,6 +428,9 @@ export const translations = {
     billingErrorMissingFlow: 'Retorno inválido de la configuración de pago. Inténtelo de nuevo.',
     billingErrorInvalidFlow: 'Este enlace de configuración ha expirado o no es válido. Comience de nuevo.',
     billingErrorConfirmFailed: 'No pudimos completar la configuración de pago. Inténtelo de nuevo.',
+    interpreterPendingTitle: 'Gracias por su interés',
+    interpreterPendingMessage:
+      'Gracias por su interés en trabajar con nosotros. Debería haber recibido un correo de info@rolling-translations.com. Por favor responda con la información y documentación requeridas para comenzar nuestra colaboración.',
 
     dashboard: 'Portal',
     requests: 'Solicitudes',
@@ -710,6 +716,9 @@ export const translations = {
     billingErrorMissingFlow: '付款设置返回无效。请重试。',
     billingErrorInvalidFlow: '此付款设置链接已过期或无效。请重新开始。',
     billingErrorConfirmFailed: '无法完成您的付款设置。请重试。',
+    interpreterPendingTitle: '感谢您的关注',
+    interpreterPendingMessage:
+      '感谢您有兴趣与我们合作。您应该已收到来自 info@rolling-translations.com 的电子邮件。请回复所需的信息和文件以开始我们的合作。',
 
     dashboard: '仪表板',
     requests: '申请',

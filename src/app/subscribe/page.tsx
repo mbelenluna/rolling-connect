@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
@@ -56,6 +57,38 @@ export default function SubscribePage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-slate-600">{t('loading')}</div>
+      </div>
+    );
+  }
+
+  const role = (session?.user as { role?: string })?.role;
+  const isInterpreter = role === 'interpreter';
+
+  if (isInterpreter) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <Image
+              src="/rolling-translations-logo.png"
+              alt="Rolling Connect"
+              width={64}
+              height={64}
+              className="rounded-full mx-auto mb-4"
+            />
+            <h1 className="text-2xl font-bold text-slate-900">{t('interpreterPendingTitle')}</h1>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <p className="text-slate-600">{t('interpreterPendingMessage')}</p>
+            <Link
+              href="/"
+              className="mt-6 block w-full py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 text-center transition"
+            >
+              {t('backToHome')}
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
