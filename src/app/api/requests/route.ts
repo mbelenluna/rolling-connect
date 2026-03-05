@@ -161,6 +161,14 @@ export async function POST(req: Request) {
       io?.to(`user:${i.id}`).emit('offer_created', offerPayload);
     });
 
+    // Publish via Ably so client can subscribe (Vercel-compatible)
+    const { publishRequestStatus } = await import('@/lib/realtime/server');
+    publishRequestStatus(request.id, {
+      status: 'offered',
+      timestamp: Date.now(),
+      requestId: request.id,
+    }).catch((e) => console.error('[requests] publishRequestStatus:', e));
+
     return NextResponse.json({
       id: request.id,
       jobId: job.id,

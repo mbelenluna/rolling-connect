@@ -120,9 +120,41 @@ When logged in as an allowed admin, `GET /api/admin/diag/auth` returns env/DB sa
 - [ ] Vercel: NEXTAUTH_URL=https://rolling-connect.com, NEXTAUTH_SECRET set
 - [ ] Google OAuth: redirect URIs include https://rolling-connect.com/api/auth/callback/google-client and google-interpreter
 
+## Realtime on Vercel
+
+The client matching flow (interpreter accepts → client redirects to call) uses **Ably** for realtime updates, which works on Vercel (no persistent WebSocket server required).
+
+### Required env vars
+
+| Variable | Description |
+|----------|-------------|
+| `ABLY_API_KEY` | From [Ably Dashboard](https://ably.com/dashboard) → Your app → API Keys. Use the root key or create one with Publish + Subscribe. |
+
+Add to `.env` and Vercel project settings.
+
+### How it works
+
+1. **DB is source of truth** — Interpreter acceptance updates the DB first (status → assigned).
+2. **Ably publish** — After DB update, server publishes `request_status` to channel `request:{requestId}`.
+3. **Client subscribes** — Client subscribes via token auth (`/api/realtime/auth`). On event, re-fetches `GET /api/requests/[id]` and redirects if assigned/in_call.
+4. **Polling fallback** — Polls every 1s for first 15s, then 2.5s. Works even if Ably is down or not configured.
+5. **Refresh-safe** — URL includes `?matching=requestId` so a page refresh during matching restores state.
+
+### Testing locally and in prod
+
+- **Local**: Set `ABLY_API_KEY` in `.env`. Run `npm run dev` or `npm run start`. Both work (Ably is serverless).
+- **Vercel**: Add `ABLY_API_KEY` in Project Settings → Environment Variables. Deploy. No custom server needed.
+- **Without Ably**: Polling fallback ensures the client still transitions when an interpreter accepts (within 1–2 poll cycles).
+
+### Manual test scenario
+
+1. Client submits human interpretation request → stays on matching screen.
+2. Interpreter (incognito or second browser) accepts within 1–2 seconds.
+3. Client transitions to call page immediately (via Ably) or within 1–2s (via polling).
+
 ## Scripts
 
-- `npm run dev` — Custom server with Socket.io
+- `npm run dev` — Custom server with Socket.io (interpreter offers)
 - `npm run build` — Production build
-- `npm run start` — Production (use custom server for Socket.io)
+- `npm run start` — Production (`next start`; Ably handles client matching)
 - `npm run db:studio` — Prisma Studio

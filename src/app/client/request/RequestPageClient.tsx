@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { io } from 'socket.io-client';
+import { subscribeToRequest } from '@/lib/realtime/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
@@ -12,6 +12,7 @@ export default function RequestPageClient() {
   const { locale } = useLanguage();
   const t = (k: TranslationKeys) => getTranslation(locale, k);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [step, setStep] = useState<'form' | 'matching' | 'assigned' | 'error' | 'no_match'>('form');
   const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]);
@@ -52,6 +53,75 @@ export default function RequestPageClient() {
   useEffect(() => {
     if (orgs.length && !form.organizationId) setForm((f) => ({ ...f, organizationId: orgs[0].id }));
   }, [orgs]);
+
+  // Restore matching state on refresh (URL has ?matching=requestId)
+  const matchingRequestId = searchParams.get('matching');
+  useEffect(() => {
+    if (!matchingRequestId || status !== 'authenticated' || !session?.user) return;
+    setStep('matching');
+
+    const timers = { timeout: null as ReturnType<typeof setTimeout> | null, poll: null as ReturnType<typeof setInterval> | null, slowDown: null as ReturnType<typeof setTimeout> | null };
+    let unsubAbly: (() => void) | null = null;
+    const requestId = matchingRequestId;
+
+    const redirectToCall = () => {
+      if (timers.timeout) clearTimeout(timers.timeout);
+      if (timers.poll) clearInterval(timers.poll);
+      if (timers.slowDown) clearTimeout(timers.slowDown);
+      unsubAbly?.();
+      router.replace(`/client/call/${requestId}`);
+    };
+
+    try {
+      unsubAbly = subscribeToRequest(requestId, async () => {
+        try {
+          const r = await fetch(`/api/requests/${requestId}`, { cache: 'no-store' });
+          const req = await r.json();
+          if (req?.status === 'assigned' || req?.status === 'in_call') redirectToCall();
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // Ably not configured
+    }
+
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/requests/${requestId}`, { cache: 'no-store' });
+        const req = await r.json();
+        if (req?.status === 'assigned' || req?.status === 'in_call') redirectToCall();
+        else if (req?.status === 'canceled' || req?.status === 'completed') setStep('no_match');
+      } catch {
+        // ignore
+      }
+    };
+    poll();
+    timers.poll = setInterval(poll, 1000);
+    timers.slowDown = setTimeout(() => {
+      if (timers.poll) clearInterval(timers.poll);
+      timers.poll = setInterval(poll, 2500);
+    }, 15000);
+
+    timers.timeout = setTimeout(() => {
+      if (timers.slowDown) clearTimeout(timers.slowDown);
+      if (timers.poll) clearInterval(timers.poll);
+      unsubAbly?.();
+      try {
+        fetch(`/api/requests/${requestId}/cancel`, { method: 'POST' }).catch(() => {});
+      } catch {
+        // ignore
+      }
+      setStep('no_match');
+    }, 60 * 1000);
+
+    return () => {
+      if (timers.timeout) clearTimeout(timers.timeout);
+      if (timers.poll) clearInterval(timers.poll);
+      if (timers.slowDown) clearTimeout(timers.slowDown);
+      unsubAbly?.();
+    };
+  }, [matchingRequestId, status, session?.user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,58 +182,11 @@ export default function RequestPageClient() {
         return;
       }
 
-      // Stay on matching screen; connect to socket for real-time assignment + polling fallback
+      // Stay on matching screen; URL update triggers useEffect for Ably + polling (refresh-safe)
       const userId = (session?.user as { id?: string })?.id;
       const requestId = data.id;
       if (userId) {
-        const socket = io({ path: '/api/socketio' });
-        socket.on('connect', () => socket.emit('auth', { userId, role: 'client' }));
-        socket.on('request_status', (payload: { status: string; requestId?: string }) => {
-          if (payload.status === 'assigned' && payload.requestId) {
-            const tid = (window as { _requestTimeoutId?: ReturnType<typeof setTimeout> })._requestTimeoutId;
-            if (tid) clearTimeout(tid);
-            const pid = (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId;
-            if (pid) clearInterval(pid);
-            router.replace(`/client/call/${payload.requestId}`);
-          }
-        });
-        (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket = socket;
-
-        // Polling fallback: Socket.io may not work (e.g. production without custom server, or connection delay)
-        const pollId = setInterval(async () => {
-          try {
-            const r = await fetch(`/api/requests/${requestId}`, { cache: 'no-store' });
-            const req = await r.json();
-            if (req?.status === 'assigned' || req?.status === 'in_call') {
-              const tid = (window as { _requestTimeoutId?: ReturnType<typeof setTimeout> })._requestTimeoutId;
-              if (tid) clearTimeout(tid);
-              clearInterval(pollId);
-              (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = undefined;
-              const s = (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket;
-              if (s) s.disconnect();
-              router.replace(`/client/call/${requestId}`);
-            }
-          } catch {
-            // ignore poll errors
-          }
-        }, 2000);
-        (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = pollId;
-
-        // 60 second timeout: if no interpreter accepts, auto-cancel and show message
-        const timeoutId = setTimeout(async () => {
-          const pid = (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId;
-          if (pid) clearInterval(pid);
-          (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = undefined;
-          const s = (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket;
-          if (s) s.disconnect();
-          try {
-            await fetch(`/api/requests/${requestId}/cancel`, { method: 'POST' });
-          } catch {
-            // ignore
-          }
-          setStep('no_match');
-        }, 60 * 1000);
-        (window as { _requestTimeoutId?: ReturnType<typeof setTimeout> })._requestTimeoutId = timeoutId;
+        router.replace(`/client/request?matching=${requestId}`);
       } else {
         router.push(`/client/requests?highlight=${data.id}`);
       }
