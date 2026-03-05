@@ -45,6 +45,11 @@ export async function requireBilling(allowed: Role | Role[]) {
   if (role === 'client' && user.registrationPath === 'contract' && !user.approvedAt) {
     redirect('/complete-registration');
   }
+  // Interpreters: approved by admin (approvedAt) grants access
+  if (role === 'interpreter') {
+    if (user.approvedAt == null) redirect('/subscribe');
+    return session;
+  }
   if (user.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   return session;
 }

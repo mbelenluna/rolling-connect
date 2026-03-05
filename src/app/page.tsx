@@ -24,9 +24,9 @@ export default async function Home() {
     if (role === 'interpreter' && userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { subscriptionStatus: true },
+        select: { approvedAt: true },
       });
-      if (user?.subscriptionStatus === 'ACTIVE') redirect(getRoleRedirect(role));
+      if (user?.approvedAt != null) redirect(getRoleRedirect(role));
     }
     // Clients/interpreters without ACTIVE subscription see the landing page
   }

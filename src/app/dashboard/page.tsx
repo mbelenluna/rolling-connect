@@ -36,9 +36,9 @@ export default async function DashboardPage() {
   if (role === 'interpreter' && userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { subscriptionStatus: true },
+      select: { approvedAt: true },
     });
-    if (user?.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
+    if (user?.approvedAt == null) redirect('/subscribe');
   }
 
   redirect(getRoleRedirect(role || ''));
