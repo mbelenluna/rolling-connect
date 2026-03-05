@@ -26,6 +26,10 @@ export default async function DashboardPage() {
     if (user.emailConfirmedAt && !user.approvedAt && !user.registrationPath) {
       redirect('/complete-registration');
     }
+    // Contract submitted, pending approval: show complete-registration (pending view), not /subscribe
+    if (user.registrationPath === 'contract' && !user.approvedAt) {
+      redirect('/complete-registration');
+    }
     if (user.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   }
 

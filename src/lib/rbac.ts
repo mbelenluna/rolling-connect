@@ -36,11 +36,15 @@ export async function requireBilling(allowed: Role | Role[]) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { emailConfirmedAt: true, subscriptionStatus: true },
+    select: { emailConfirmedAt: true, subscriptionStatus: true, registrationPath: true, approvedAt: true },
   });
 
   if (!user) redirect('/login');
   if (role === 'client' && !user.emailConfirmedAt) redirect('/verify-email');
+  // Contract-pending clients: show pending view, not /subscribe
+  if (role === 'client' && user.registrationPath === 'contract' && !user.approvedAt) {
+    redirect('/complete-registration');
+  }
   if (user.subscriptionStatus !== 'ACTIVE') redirect('/subscribe');
   return session;
 }

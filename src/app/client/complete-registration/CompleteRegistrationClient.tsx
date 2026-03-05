@@ -7,13 +7,19 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
-export default function CompleteRegistrationClient() {
+type Step = 'question' | 'contract_form' | 'pending' | 'redirecting';
+
+export default function CompleteRegistrationClient({
+  initialStep = 'question',
+}: {
+  initialStep?: Step;
+}) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { locale } = useLanguage();
   const t = (k: TranslationKeys) => getTranslation(locale, k);
 
-  const [step, setStep] = useState<'question' | 'contract_form' | 'pending' | 'redirecting'>('question');
+  const [step, setStep] = useState<Step>(initialStep);
   const [contractDetails, setContractDetails] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,12 +39,17 @@ export default function CompleteRegistrationClient() {
   const handleNoContract = async () => {
     setStep('redirecting');
     setLoading(true);
+    setError('');
     try {
-      await fetch('/api/client/set-registration-path', {
+      const pathRes = await fetch('/api/client/set-registration-path', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'gocardless' }),
       });
+      if (!pathRes.ok) {
+        const pathData = await pathRes.json().catch(() => ({}));
+        throw new Error(pathData.error || 'Failed to save registration path');
+      }
       const res = await fetch('/api/billing/start', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || t('somethingWentWrong'));
@@ -46,9 +57,9 @@ export default function CompleteRegistrationClient() {
         window.location.href = data.redirectUrl;
         return;
       }
-      throw new Error(t('somethingWentWrong'));
-    } catch {
-      setError(t('somethingWentWrong'));
+      throw new Error(data.error || t('somethingWentWrong'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('somethingWentWrong'));
       setStep('question');
     } finally {
       setLoading(false);
@@ -88,12 +99,20 @@ export default function CompleteRegistrationClient() {
       <div className="max-w-lg mx-auto p-8 bg-white rounded-xl border border-slate-200">
         <h1 className="text-2xl font-bold text-slate-900 mb-4">{t('accountPendingApproval')}</h1>
         <p className="text-slate-600 mb-6">{t('contractSubmittedMessage')}</p>
-        <Link
-          href="/dashboard"
-          className="inline-block px-6 py-2 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700"
-        >
-          {t('backToDashboard')}
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/"
+            className="inline-block px-6 py-2 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700"
+          >
+            {t('backToHome')}
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-block px-6 py-2 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {t('backToDashboard')}
+          </Link>
+        </div>
       </div>
     );
   }
