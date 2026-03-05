@@ -112,7 +112,7 @@ export default function RequestPageClient() {
         return;
       }
 
-      // Stay on matching screen; connect to socket for real-time assignment
+      // Stay on matching screen; connect to socket for real-time assignment + polling fallback
       const userId = (session?.user as { id?: string })?.id;
       const requestId = data.id;
       if (userId) {
@@ -122,13 +122,38 @@ export default function RequestPageClient() {
           if (payload.status === 'assigned' && payload.requestId) {
             const tid = (window as { _requestTimeoutId?: ReturnType<typeof setTimeout> })._requestTimeoutId;
             if (tid) clearTimeout(tid);
+            const pid = (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId;
+            if (pid) clearInterval(pid);
             router.replace(`/client/call/${payload.requestId}`);
           }
         });
         (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket = socket;
 
+        // Polling fallback: Socket.io may not work (e.g. production without custom server, or connection delay)
+        const pollId = setInterval(async () => {
+          try {
+            const r = await fetch(`/api/requests/${requestId}`, { cache: 'no-store' });
+            const req = await r.json();
+            if (req?.status === 'assigned' || req?.status === 'in_call') {
+              const tid = (window as { _requestTimeoutId?: ReturnType<typeof setTimeout> })._requestTimeoutId;
+              if (tid) clearTimeout(tid);
+              clearInterval(pollId);
+              (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = undefined;
+              const s = (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket;
+              if (s) s.disconnect();
+              router.replace(`/client/call/${requestId}`);
+            }
+          } catch {
+            // ignore poll errors
+          }
+        }, 2000);
+        (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = pollId;
+
         // 60 second timeout: if no interpreter accepts, auto-cancel and show message
         const timeoutId = setTimeout(async () => {
+          const pid = (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId;
+          if (pid) clearInterval(pid);
+          (window as { _requestPollId?: ReturnType<typeof setInterval> })._requestPollId = undefined;
           const s = (window as { _requestSocket?: ReturnType<typeof io> })._requestSocket;
           if (s) s.disconnect();
           try {
