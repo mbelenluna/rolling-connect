@@ -93,6 +93,8 @@ export const translations = {
     createAnAccount: 'Create an account',
     invalidCredentials: 'Invalid credentials',
     somethingWentWrong: 'Something went wrong',
+    expiredTokenMessage: 'This verification link has expired. Verification links are valid for 7 days.',
+    resendVerificationLink: 'Request a new verification email',
     registrationFailed: 'Registration failed',
     googleSignInNotConfigured:
       'Google sign-in is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your .env file. See .env.example.',
@@ -380,6 +382,8 @@ export const translations = {
     createAnAccount: 'Crear una cuenta',
     invalidCredentials: 'Usuario y/o contraseña inválidos',
     somethingWentWrong: 'Algo salió mal',
+    expiredTokenMessage: 'Este enlace de verificación ha expirado. Los enlaces son válidos por 7 días.',
+    resendVerificationLink: 'Solicitar un nuevo correo de verificación',
     registrationFailed: 'Registro fallido',
     googleSignInNotConfigured:
       'El inicio de sesión con Google no está configurado. Añada GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET a tu archivo .env. Consulta .env.example.',
@@ -663,6 +667,8 @@ export const translations = {
     createAnAccount: '创建账户',
     invalidCredentials: '凭据无效',
     somethingWentWrong: '出了点问题',
+    expiredTokenMessage: '此验证链接已过期。验证链接有效期为7天。',
+    resendVerificationLink: '请求新的验证邮件',
     registrationFailed: '注册失败',
     googleSignInNotConfigured:
       '未配置 Google 登录。请将 GOOGLE_CLIENT_ID 和 GOOGLE_CLIENT_SECRET 添加到 .env 文件中。参见 .env.example。',

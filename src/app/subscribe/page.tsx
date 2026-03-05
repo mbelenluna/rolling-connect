@@ -18,11 +18,14 @@ export default function SubscribePage() {
   const [error, setError] = useState('');
 
   const err = searchParams.get('error');
+  const errDetail = searchParams.get('errorDetail');
   useEffect(() => {
     if (err === 'missing_flow_id') setError(t('billingErrorMissingFlow'));
     else if (err === 'invalid_flow') setError(t('billingErrorInvalidFlow'));
-    else if (err === 'confirm_failed') setError(t('billingErrorConfirmFailed'));
-  }, [err, t]);
+    else if (err === 'confirm_failed') {
+      setError(errDetail ? `${t('billingErrorConfirmFailed')} (${errDetail})` : t('billingErrorConfirmFailed'));
+    }
+  }, [err, errDetail, t]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {

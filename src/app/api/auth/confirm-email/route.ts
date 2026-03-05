@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   });
 
   if (!record || record.expiresAt < new Date()) {
-    return NextResponse.redirect(new URL('/login?error=expired_token', req.url));
+    const email = record?.user?.email ? `&email=${encodeURIComponent(record.user.email)}` : '';
+    return NextResponse.redirect(new URL(`/login?error=expired_token${email}`, req.url));
   }
 
   await prisma.$transaction([

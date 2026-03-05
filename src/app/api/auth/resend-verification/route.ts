@@ -37,7 +37,7 @@ async function resend(emailFromRequest: string | undefined) {
   }
 
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   await prisma.emailConfirmationToken.upsert({
     where: { userId: user.id },

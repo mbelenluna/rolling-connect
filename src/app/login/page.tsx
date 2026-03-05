@@ -47,20 +47,25 @@ function LoginContent() {
     const err = searchParams.get('error');
     if (err === 'GoogleSignInClientOnly') {
       setError('Google sign-in is available for clients and interpreters only. Admins must use email and password.');
+    } else if (err === 'expired_token') {
+      setError(''); // Handled separately in UI
     } else if (err) {
       const msg = searchParams.get('errorDescription') || err;
       setError(msg);
+    } else {
+      setError('');
     }
   }, [searchParams]);
 
   useEffect(() => {
     const confirmed = searchParams.get('confirmed') === '1';
     const em = searchParams.get('email');
-    if (confirmed && em) setEmail(em);
+    if ((confirmed || searchParams.get('error') === 'expired_token') && em) setEmail(em);
   }, [searchParams]);
 
   const registeredClient = searchParams.get('registered') === 'client';
   const emailConfirmed = searchParams.get('confirmed') === '1';
+  const expiredToken = searchParams.get('error') === 'expired_token';
   const confirmedEmail = searchParams.get('email') || '';
 
   const validatePassword = (pwd: string): string | null => {
@@ -123,6 +128,13 @@ function LoginContent() {
       }
 
       const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      // Clear URL error params so they don't persist when retrying with credentials
+      if (searchParams.get('error')) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('error');
+        params.delete('errorDescription');
+        router.replace(params.toString() ? `/login?${params}` : '/login');
+      }
       const result = await signIn('credentials', { email, password, redirect: false });
       if (result?.error) throw new Error(result.error || 'Invalid credentials');
 
@@ -170,6 +182,18 @@ function LoginContent() {
                 <p className="text-green-800 font-medium">{t(locale, 'emailConfirmedMessage')}</p>
                 {confirmedEmail && (
                   <p className="text-sm text-green-700 mt-1">{t(locale, 'signInToContinue')}</p>
+                )}
+              </div>
+            ) : expiredToken ? (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800 font-medium">{t(locale, 'expiredTokenMessage')}</p>
+                {confirmedEmail && (
+                  <Link
+                    href={`/verify-email?email=${encodeURIComponent(confirmedEmail)}`}
+                    className="inline-block mt-2 text-brand-600 hover:text-brand-700 font-medium"
+                  >
+                    {t(locale, 'resendVerificationLink')}
+                  </Link>
                 )}
               </div>
             ) : null}

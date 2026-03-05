@@ -2,8 +2,9 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { prisma } from './prisma';
-import { sendWelcomeEmail, sendInterpreterWelcomeEmail } from './email';
+import { sendEmailConfirmation, sendInterpreterWelcomeEmail } from './email';
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -92,7 +93,12 @@ export const authOptions: NextAuthOptions = {
           await prisma.organizationMember.create({
             data: { organizationId: org.id, userId: newUser.id, role: 'owner' },
           });
-          sendWelcomeEmail(email, newUser.name).catch((e) => console.error('Welcome email failed:', e));
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+          await prisma.emailConfirmationToken.create({
+            data: { userId: newUser.id, token, expiresAt },
+          });
+          sendEmailConfirmation(email, newUser.name, token).catch((e) => console.error('Confirmation email failed:', e));
         }
         return true;
       }

@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     if (!userId) redirect('/login');
 
     const url = new URL(req.url);
-    const redirectFlowId = url.searchParams.get('redirect_flow_id');
+    const redirectFlowId = url.searchParams.get('redirect_flow_id') || url.searchParams.get('redirectFlowId');
     if (!redirectFlowId) {
       redirect('/subscribe?error=missing_flow_id');
     }
@@ -61,7 +61,8 @@ export async function GET(req: Request) {
     const target = role === 'client' ? '/client' : role === 'interpreter' ? '/interpreter' : '/dashboard';
     redirect(`${target}?billing=success`);
   } catch (err) {
-    console.error('Billing confirm error:', err);
-    redirect('/subscribe?error=confirm_failed');
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Billing confirm error:', msg, err);
+    redirect(`/subscribe?error=confirm_failed&errorDetail=${encodeURIComponent(msg.slice(0, 100))}`);
   }
 }
