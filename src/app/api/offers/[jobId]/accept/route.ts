@@ -56,39 +56,17 @@ export async function POST(
     return NextResponse.json({ success: false, error: result.error }, { status: 400 });
   }
 
-  const jobResult = result as { job: { offeredToIds: unknown; requestId: string; request?: { createdByUserId: string }; call?: { roomId: string } } };
+  const jobResult = result as { job: { requestId: string; call?: { roomId: string } } };
   const requestId = jobResult.job.requestId;
+  const roomId = jobResult.job.call?.roomId ?? `room_${jobId}`;
 
-  // Publish via Ably (Vercel-compatible, no Socket.io)
+  // Publish via Ably (Vercel-compatible)
   const { publishRequestStatus } = await import('@/lib/realtime/server');
   publishRequestStatus(requestId, {
     status: 'assigned',
     timestamp: Date.now(),
     requestId,
   }).catch((e) => console.error('[accept] publishRequestStatus:', e));
-
-  // Legacy Socket.io (only works with custom server; no-op on Vercel)
-  const io = (global as { io?: { to: (room: string) => { emit: (e: string, p: unknown) => void } } }).io;
-  const offeredTo = (jobResult.job.offeredToIds as string[]) || [];
-  const roomId = jobResult.job.call?.roomId ?? `room_${jobId}`;
-  const payload = { jobId, requestId };
-  offeredTo.forEach((uid) => {
-    if (uid === interpreterId) {
-      io?.to(`user:${uid}`).emit('job_assigned', { ...payload, joinToken: `token_${roomId}_${uid}`, roomId });
-    } else {
-      io?.to(`user:${uid}`).emit('offer_revoked', { ...payload, reason: 'filled' });
-    }
-  });
-  const clientUserId = jobResult.job.request?.createdByUserId;
-  if (clientUserId) {
-    io?.to(`user:${clientUserId}`).emit('request_status', {
-      jobId,
-      requestId,
-      status: 'assigned',
-      interpreterId,
-      roomId,
-    });
-  }
 
   return NextResponse.json({
     success: true,

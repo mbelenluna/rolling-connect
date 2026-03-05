@@ -98,7 +98,7 @@ async function handleAuth(req: Request) {
     );
   }
 
-  const capability: Record<string, string[]> = {};
+  const capability: Record<string, ('subscribe')[]> = {};
   for (const ch of allowedChannels) {
     capability[ch] = ['subscribe'];
   }

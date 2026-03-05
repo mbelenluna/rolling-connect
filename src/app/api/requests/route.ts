@@ -145,23 +145,7 @@ export async function POST(req: Request) {
       data: { status: 'offered' },
     });
 
-    const io = (global as { io?: { to: (room: string) => { emit: (e: string, p: unknown) => void } } }).io;
-    const offerPayload = {
-      jobId: job.id,
-      requestId: request.id,
-      languagePair: `${data.sourceLanguage} → ${data.targetLanguage}`,
-      specialty: data.specialty,
-      estimatedDurationMinutes: data.estimatedDurationMinutes,
-      notes: data.notes,
-      urgency: data.urgency,
-      expiresAt: offerExpiresAt.toISOString(),
-    };
-
-    interpreters.forEach((i) => {
-      io?.to(`user:${i.id}`).emit('offer_created', offerPayload);
-    });
-
-    // Publish via Ably so client can subscribe (Vercel-compatible)
+    // Publish via Ably (Vercel-compatible). Interpreters get offers via /api/interpreter/offers polling.
     const { publishRequestStatus } = await import('@/lib/realtime/server');
     publishRequestStatus(request.id, {
       status: 'offered',
