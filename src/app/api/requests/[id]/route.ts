@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const LOG_PREFIX = '[requests GET]';
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -11,7 +13,10 @@ export async function GET(
   const { prisma } = await import('@/lib/prisma');
 
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user) {
+    console.warn(LOG_PREFIX, 'Unauthorized: no session');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const { id } = await params;
 
@@ -28,14 +33,25 @@ export async function GET(
     },
   });
 
-  if (!request) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!request) {
+    console.warn(LOG_PREFIX, 'Not found', { requestId: id });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const role = (session.user as { role?: string }).role;
   if (role === 'client') {
     const member = await prisma.organizationMember.findFirst({
       where: { organizationId: request.organizationId, userId: (session.user as { id?: string }).id },
     });
-    if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!member) {
+      console.warn(LOG_PREFIX, 'Forbidden: not org member', { requestId: id });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
+  // Log status for matching-flow debugging (matching/offered/assigned transitions)
+  if (['matching', 'offered', 'assigned', 'in_call'].includes(request.status)) {
+    console.log(LOG_PREFIX, 'Status', { requestId: id, status: request.status });
   }
 
   return NextResponse.json(request);

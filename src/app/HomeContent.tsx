@@ -17,29 +17,29 @@ export default function HomeContent() {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Image
               src="/rolling-translations-logo.png"
               alt="Rolling Translations"
-              width={44}
-              height={44}
-              className="rounded-full"
+              width={40}
+              height={40}
+              className="rounded-full shrink-0"
             />
-            <span className="text-xl font-semibold text-slate-900">{t(locale, 'siteName')}</span>
+            <span className="text-lg sm:text-xl font-semibold text-slate-900 truncate">{t(locale, 'siteName')}</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <LanguageSwitcher />
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <Link
                 href="/login"
-                className="px-4 py-2 text-slate-700 font-medium hover:text-slate-900 transition"
+                className="px-3 sm:px-4 py-2 text-slate-700 font-medium hover:text-slate-900 transition text-sm sm:text-base"
               >
                 {t(locale, 'signIn')}
               </Link>
               <Link
                 href="/login?register=1"
-                className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition"
+                className="px-3 sm:px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition text-sm sm:text-base"
               >
                 {t(locale, 'register')}
               </Link>
@@ -51,16 +51,16 @@ export default function HomeContent() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-600/10 via-white to-slate-50" />
-        <div className="relative max-w-6xl mx-auto px-6 py-20 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-4 sm:mb-6">
             {t(locale, 'heroTitle')}
             <br />
             <span className="text-brand-600">{t(locale, 'heroTitleHighlight')}</span>
           </h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-10">
+          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto mb-8 sm:mb-10 px-2">
             {t(locale, 'heroSubtitle')}
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
+          <div className="flex gap-3 sm:gap-4 justify-center flex-wrap px-2">
             <Link
               href="/login?register=1"
               className="px-8 py-4 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition shadow-lg shadow-brand-600/25"
@@ -78,8 +78,8 @@ export default function HomeContent() {
       </section>
 
       {/* OPI Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="py-10 sm:py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-600/10 text-brand-600 text-sm font-medium mb-4">
@@ -114,8 +114,8 @@ export default function HomeContent() {
       </section>
 
       {/* VRI Section */}
-      <section className="py-16 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="py-10 sm:py-16 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row-reverse items-center gap-12">
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-600/10 text-brand-600 text-sm font-medium mb-4">
@@ -150,8 +150,8 @@ export default function HomeContent() {
       </section>
 
       {/* How it works */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="py-10 sm:py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-slate-900 mb-4">{t(locale, 'howItWorksTitle')}</h2>
             <p className="text-slate-600 max-w-2xl mx-auto">
@@ -179,8 +179,8 @@ export default function HomeContent() {
       </section>
 
       {/* Trust / CTA */}
-      <section className="py-16 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6 text-center">
+      <section className="py-10 sm:py-16 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-slate-600 mb-2">{t(locale, 'trustLine')}</p>
           <p className="text-slate-500 text-sm mb-10">{t(locale, 'trustSubline')}</p>
           <Link

@@ -1,20 +1,39 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { findEligibleInterpreters } from '@/lib/matching';
+import { findEligibleInterpreters, findEligibleInterpretersWithDebug } from '@/lib/matching';
 
 type LanguagePair = { source?: string; target?: string };
 
 /**
- * Debug endpoint to verify matching and socket status.
+ * Admin-only debug endpoint to verify matching and socket status.
  * Call with ?sourceLanguage=en&targetLanguage=es&specialty=medical
+ * Or ?requestId=xxx to use that request's params.
  */
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as { role?: string })?.role;
+  if (role !== 'admin') {
+    return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
-  const sourceLanguage = searchParams.get('sourceLanguage') || 'en';
-  const targetLanguage = searchParams.get('targetLanguage') || 'es';
-  const specialty = searchParams.get('specialty') || 'medical';
+  const requestId = searchParams.get('requestId');
+  let sourceLanguage = searchParams.get('sourceLanguage') || 'en';
+  let targetLanguage = searchParams.get('targetLanguage') || 'es';
+  let specialty = searchParams.get('specialty') || 'medical';
+
+  if (requestId) {
+    const req = await prisma.interpretationRequest.findFirst({ where: { id: requestId } });
+    if (req) {
+      sourceLanguage = req.sourceLanguage;
+      targetLanguage = req.targetLanguage;
+      specialty = req.specialty;
+    }
+  }
 
   const allInterpreters = await prisma.user.findMany({
     where: { role: 'interpreter' },
@@ -109,7 +128,7 @@ export async function GET(req: Request) {
     }));
   }
 
-  const interpreters = await findEligibleInterpreters({
+  const { interpreters, debug: matchingDebug } = await findEligibleInterpretersWithDebug({
     sourceLanguage,
     targetLanguage,
     specialty,
@@ -135,9 +154,11 @@ export async function GET(req: Request) {
     socketAvailable,
     interpretersMatched: interpreters.length,
     matchedIds: interpreters.map((i) => ({ id: i.id, name: i.name })),
+    matchingCounts: matchingDebug,
     debugReasons: finalReasons,
     activeJobsByUser,
     stuckJobsByUser,
     requestParams: { sourceLanguage, targetLanguage, specialty },
+    requestId: requestId || undefined,
   });
 }

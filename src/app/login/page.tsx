@@ -149,8 +149,8 @@ function LoginContent() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Image
               src="/rolling-translations-logo.png"
               alt="Rolling Translations"
@@ -158,9 +158,9 @@ function LoginContent() {
               height={40}
               className="rounded-full"
             />
-            <span className="text-xl font-semibold text-slate-900">{t(locale, 'siteName')}</span>
+            <span className="text-lg sm:text-xl font-semibold text-slate-900 truncate">{t(locale, 'siteName')}</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <LanguageSwitcher />
             <Link href="/" className="text-slate-600 hover:text-slate-900 text-sm font-medium">
               {t(locale, 'backToHome')}

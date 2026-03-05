@@ -3,26 +3,28 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LOCALE_NAMES } from '@/lib/translations';
 
+const LOCALE_LABELS: Record<'en' | 'es' | 'zh', string> = {
+  en: 'EN',
+  es: 'ES',
+  zh: '中文',
+};
+
 export function LanguageSwitcher() {
   const { locale, setLocale } = useLanguage();
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white/80 p-1">
+    <select
+      value={locale}
+      onChange={(e) => setLocale(e.target.value as 'en' | 'es' | 'zh')}
+      className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer min-w-0"
+      title="Select language"
+      aria-label="Select language"
+    >
       {(['en', 'es', 'zh'] as const).map((loc) => (
-        <button
-          key={loc}
-          type="button"
-          onClick={() => setLocale(loc)}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            locale === loc
-              ? 'bg-brand-600 text-white'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
-          title={`Switch to ${LOCALE_NAMES[loc]}`}
-        >
-          {loc === 'en' ? 'EN' : loc === 'es' ? 'ES' : '中文'}
-        </button>
+        <option key={loc} value={loc}>
+          {LOCALE_LABELS[loc]}
+        </option>
       ))}
-    </div>
+    </select>
   );
 }

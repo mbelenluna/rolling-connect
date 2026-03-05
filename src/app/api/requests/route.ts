@@ -7,6 +7,7 @@ import { cancelStaleJobs } from '@/lib/cancel-job';
 import { z } from 'zod';
 
 const OFFER_TIMEOUT_SEC = 60;
+const LOG_PREFIX = '[requests POST]';
 
 const schema = z.object({
   interpretationType: z.enum(['human', 'ai']).default('human'),
@@ -35,9 +36,17 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const role = (session.user as { role?: string }).role;
-  if (role !== 'client' && role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const userId = (session?.user as { id?: string })?.id;
+  const role = (session?.user as { role?: string })?.role;
+
+  if (!session?.user) {
+    console.warn(LOG_PREFIX, 'Unauthorized: no session');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (role !== 'client' && role !== 'admin') {
+    console.warn(LOG_PREFIX, 'Forbidden: role=', role);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   if (role === 'client') {
     const clientUser = await prisma.user.findUnique({
@@ -45,6 +54,7 @@ export async function POST(req: Request) {
       select: { approvedAt: true, rejectedAt: true },
     });
     if (!clientUser?.approvedAt || clientUser.rejectedAt) {
+      console.warn(LOG_PREFIX, 'Client pending approval', { userId });
       return NextResponse.json(
         { error: 'CLIENT_PENDING_APPROVAL' },
         { status: 403 }
@@ -59,9 +69,13 @@ export async function POST(req: Request) {
     const orgMember = await prisma.organizationMember.findFirst({
       where: { organizationId: data.organizationId, userId: (session.user as { id?: string }).id },
     });
-    if (!orgMember) return NextResponse.json({ error: 'Organization access denied' }, { status: 403 });
+    if (!orgMember) {
+      console.warn(LOG_PREFIX, 'Organization access denied', { userId, organizationId: data.organizationId });
+      return NextResponse.json({ error: 'Organization access denied' }, { status: 403 });
+    }
 
     const isAI = data.interpretationType === 'ai';
+    console.log(LOG_PREFIX, 'Creating request', { userId, role, interpretationType: data.interpretationType, sourceLanguage: data.sourceLanguage, targetLanguage: data.targetLanguage, specialty: data.specialty });
 
     const request = await prisma.interpretationRequest.create({
       data: {
@@ -114,7 +128,7 @@ export async function POST(req: Request) {
       });
     }
 
-    cancelStaleJobs().catch(() => {});
+    cancelStaleJobs().catch((e) => console.error(LOG_PREFIX, 'cancelStaleJobs error:', e));
 
     const interpreters = await findEligibleInterpreters({
       sourceLanguage: data.sourceLanguage,
@@ -127,6 +141,8 @@ export async function POST(req: Request) {
       genderPreference: data.genderPreference,
       scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
     });
+
+    console.log(LOG_PREFIX, 'Matching result', { requestId: request.id, interpretersFound: interpreters.length, interpreterIds: interpreters.map((i) => i.id) });
 
     const offerExpiresAt = new Date(Date.now() + OFFER_TIMEOUT_SEC * 1000);
     const offeredToIds = interpreters.map((i) => i.id);
@@ -151,19 +167,27 @@ export async function POST(req: Request) {
       status: 'offered',
       timestamp: Date.now(),
       requestId: request.id,
-    }).catch((e) => console.error('[requests] publishRequestStatus:', e));
+    }).catch((e) => console.error(LOG_PREFIX, 'publishRequestStatus:', e));
+
+    const responseStatus = interpreters.length > 0 ? 'offered' : 'no_match';
+    console.log(LOG_PREFIX, 'Success', { requestId: request.id, jobId: job.id, status: responseStatus, interpretersMatched: interpreters.length });
 
     return NextResponse.json({
       id: request.id,
       jobId: job.id,
-      status: interpreters.length > 0 ? 'offered' : 'no_match',
+      status: responseStatus,
       interpretersMatched: interpreters.length,
       createdAt: request.createdAt,
       estimatedMatchTime: OFFER_TIMEOUT_SEC,
     });
   } catch (e) {
-    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors }, { status: 400 });
-    throw e;
+    if (e instanceof z.ZodError) {
+      console.warn(LOG_PREFIX, 'Validation error', e.errors);
+      return NextResponse.json({ error: e.errors }, { status: 400 });
+    }
+    console.error(LOG_PREFIX, 'Error', e);
+    const msg = e instanceof Error ? e.message : 'Request failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const LOG_PREFIX = '[accept]';
+
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ jobId: string }> }
@@ -11,12 +13,20 @@ export async function POST(
   const { prisma } = await import('@/lib/prisma');
 
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const interpreterId = (session.user as { id?: string }).id;
-  const role = (session.user as { role?: string }).role;
-  if (role !== 'interpreter') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const interpreterId = (session?.user as { id?: string })?.id;
+  const role = (session?.user as { role?: string })?.role;
+
+  if (!session?.user) {
+    console.warn(LOG_PREFIX, 'Unauthorized: no session');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (role !== 'interpreter') {
+    console.warn(LOG_PREFIX, 'Forbidden: role=', role);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const { jobId } = await params;
+  console.log(LOG_PREFIX, 'Accept attempt', { jobId, interpreterId });
 
   const result = await prisma.$transaction(async (tx) => {
     const job = await tx.job.findFirst({
@@ -53,10 +63,12 @@ export async function POST(
   });
 
   if (!result.success) {
-    return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    console.warn(LOG_PREFIX, 'Accept failed', { jobId, interpreterId, error: (result as { error?: string }).error });
+    return NextResponse.json({ success: false, error: (result as { error?: string }).error }, { status: 400 });
   }
 
   const jobResult = result as { job: { requestId: string; call?: { roomId: string } } };
+  console.log(LOG_PREFIX, 'Accept success', { jobId, requestId: jobResult.job.requestId, interpreterId });
   const requestId = jobResult.job.requestId;
   const roomId = jobResult.job.call?.roomId ?? `room_${jobId}`;
 
@@ -66,7 +78,7 @@ export async function POST(
     status: 'assigned',
     timestamp: Date.now(),
     requestId,
-  }).catch((e) => console.error('[accept] publishRequestStatus:', e));
+  }).catch((e) => console.error(LOG_PREFIX, 'publishRequestStatus:', e));
 
   return NextResponse.json({
     success: true,
