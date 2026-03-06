@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
 import Link from 'next/link';
+import { playNotificationSound } from '@/lib/notification-sound';
+import { requestNotificationPermission, showOfferNotification } from '@/lib/browser-notification';
 
 type Offer = {
   jobId: string;
@@ -31,6 +33,8 @@ export default function InterpreterPageClient() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [assignedJob, setAssignedJob] = useState<AssignedJob | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const knownOfferIds = useRef<Set<string>>(new Set());
+  const hasInitialLoad = useRef(false);
 
   useEffect(() => {
     fetch('/api/interpreter/approval-status')
@@ -40,7 +44,14 @@ export default function InterpreterPageClient() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/interpreter/availability').then((r) => r.json()).then((a) => setAvailability(a.status || 'offline')).catch(console.error);
+    fetch('/api/interpreter/availability')
+      .then((r) => r.json())
+      .then((a) => {
+        const status = a.status || 'offline';
+        setAvailability(status);
+        if (status === 'online') requestNotificationPermission();
+      })
+      .catch(console.error);
   }, []);
 
   // Poll for offers (runs regardless of availability - API only returns offers you're matched to)
@@ -52,7 +63,23 @@ export default function InterpreterPageClient() {
         .then((list: Offer[]) => setOffers((prev) => {
           const ids = new Set(list.map((o) => o.jobId));
           const fromSocket = prev.filter((o) => !ids.has(o.jobId));
-          return [...list, ...fromSocket];
+          const merged = [...list, ...fromSocket];
+
+          // Seed known IDs on first load (don't notify for offers already on screen)
+          if (!hasInitialLoad.current) {
+            hasInitialLoad.current = true;
+            list.forEach((o) => knownOfferIds.current.add(o.jobId));
+          } else {
+            const newOffers = list.filter((o) => !knownOfferIds.current.has(o.jobId));
+            if (newOffers.length > 0) {
+              list.forEach((o) => knownOfferIds.current.add(o.jobId));
+              playNotificationSound();
+              const first = newOffers[0];
+              showOfferNotification({ languagePair: first.languagePair, specialty: first.specialty });
+            }
+          }
+
+          return merged;
         }))
         .catch(() => {});
     poll();
@@ -76,6 +103,9 @@ export default function InterpreterPageClient() {
     socket.on('offer_created', (offer: Offer) => {
       setOffers((prev) => {
         if (prev.some((o) => o.jobId === offer.jobId)) return prev;
+        knownOfferIds.current.add(offer.jobId);
+        playNotificationSound();
+        showOfferNotification({ languagePair: offer.languagePair, specialty: offer.specialty });
         return [...prev, offer];
       });
     });
@@ -102,6 +132,9 @@ export default function InterpreterPageClient() {
       body: JSON.stringify({ status }),
     });
     setAvailability(status);
+    if (status === 'online') {
+      requestNotificationPermission();
+    }
   };
 
   const acceptOffer = async (jobId: string) => {
