@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { generateClientId } from '@/lib/client-id';
 import { sendEmailConfirmation, sendInterpreterWelcomeEmail } from '@/lib/email';
 import { z } from 'zod';
 
@@ -54,8 +55,9 @@ export async function POST(req: Request) {
 
     if (role === 'client') {
       const orgName = organization?.trim() || `${name}'s Organization`;
+      const phoneClientId = await generateClientId();
       const org = await prisma.organization.create({
-        data: { name: orgName, billingEmail: email },
+        data: { name: orgName, billingEmail: email, phoneClientId },
       });
       await prisma.organizationMember.create({
         data: { organizationId: org.id, userId: user.id, role: 'owner' },

@@ -76,13 +76,13 @@ export async function POST(req: NextRequest) {
     // Initial call: greet and collect client ID
     const actionUrl = `${getWebhookBaseUrl()}?step=validate_client`;
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Welcome to Rolling Connect. Please enter your client ID, followed by the pound key.</Say><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="10"/><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Welcome to Rolling Connect. Please enter your 6 digit client ID, followed by the pound key.</Say><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="10"/><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
   if (step === 'validate_client') {
-    const clientId = digits.replace(/[^0-9a-zA-Z]/g, '');
-    if (!clientId || clientId.length < 4) {
+    const clientId = digits.replace(/\D/g, '');
+    if (!clientId || clientId.length !== 6) {
       return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
     }
 

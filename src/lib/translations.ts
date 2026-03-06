@@ -24,6 +24,10 @@ export const translations = {
     heroTitleHighlight: 'when you need it',
     heroSubtitle:
       'Connect with certified interpreters in seconds. Log in to request an interpreter now. Healthcare, legal, business, and more.',
+    heroPhoneOption: 'Access interpretation online or by phone — no waiting.',
+    phoneNumber: '+1 689 400 7175',
+    callNow: 'Call Now',
+    learnPhoneAccess: 'Learn how phone access works',
     getStarted: 'Get Started',
 
     // OPI Section
@@ -34,6 +38,7 @@ export const translations = {
     opiBullet1: 'Instant connection — no setup or app download',
     opiBullet2: 'Ideal for healthcare, legal, insurance, and customer service',
     opiBullet3: 'Works on computer or smartphone',
+    opiPhoneAccess: 'Prefer phone? Call +1 689 400 7175 and enter your Client ID for direct OPI access.',
 
     // VRI Section
     vriBadge: 'Video-based',
@@ -65,6 +70,18 @@ export const translations = {
     trustLine: 'Trusted by healthcare, legal, and business professionals',
     trustSubline: 'Confidential • Certified • On-demand',
     getStartedToday: 'Get started today',
+
+    // Phone Access (client dashboard, request flow)
+    phoneAccessTitle: 'Phone Interpretation Access',
+    phoneAccessSubtitle: 'Request OPI directly by phone',
+    phoneAccessCallLabel: 'Call',
+    phoneAccessClientIdLabel: 'Client ID',
+    phoneAccessClientIdHint: 'Enter this Client ID when prompted during your call.',
+    phoneAccessCopyPhone: 'Copy phone number',
+    phoneAccessCopyId: 'Copy Client ID',
+    phoneAccessCopied: 'Copied',
+    requestPhoneAlternative: 'Prefer phone access? Call +1 689 400 7175 and enter your Client ID.',
+    requestPhoneOrWeb: 'Use the web portal for online requests or call for direct phone interpretation.',
 
     // Footer
     footerCompany: 'Rolling Translations LLC',
@@ -328,6 +345,10 @@ export const translations = {
     heroTitleHighlight: 'cuando la necesite',
     heroSubtitle:
       'Conéctese con intérpretes certificados en segundos. Inicie sesión para solicitar un intérprete ahora. Interpretación médica, legal, empresarial y más.',
+    heroPhoneOption: 'Acceda a la interpretación en línea o por teléfono — sin esperas.',
+    phoneNumber: '+1 689 400 7175',
+    callNow: 'Llamar ahora',
+    learnPhoneAccess: 'Cómo funciona el acceso por teléfono',
     getStarted: 'Comenzar',
 
     opiBadge: 'Por teléfono',
@@ -337,6 +358,7 @@ export const translations = {
     opiBullet1: 'Conexión instantánea: sin configuración ni descarga de aplicaciones',
     opiBullet2: 'Ideal para atención médica, legal, seguros y servicio al cliente',
     opiBullet3: 'Funciona en computadora o smartphone',
+    opiPhoneAccess: '¿Prefiere el teléfono? Llame al +1 689 400 7175 e ingrese su ID de cliente para acceso OPI directo.',
 
     vriBadge: 'Por video',
     vriTitle: 'VRI — Interpretación remota por video',
@@ -365,6 +387,17 @@ export const translations = {
     trustLine: 'La elección de confianza de profesionales de la salud, el ámbito legal y el sector empresarial.',
     trustSubline: 'Confidencialidad • Intérpretes certificados • Bajo demanda',
     getStartedToday: 'Comience hoy mismo',
+
+    phoneAccessTitle: 'Acceso a interpretación por teléfono',
+    phoneAccessSubtitle: 'Solicite OPI directamente por teléfono',
+    phoneAccessCallLabel: 'Llamar',
+    phoneAccessClientIdLabel: 'ID de cliente',
+    phoneAccessClientIdHint: 'Ingrese este ID de cliente cuando se le solicite durante la llamada.',
+    phoneAccessCopyPhone: 'Copiar número de teléfono',
+    phoneAccessCopyId: 'Copiar ID de cliente',
+    phoneAccessCopied: 'Copiado',
+    requestPhoneAlternative: '¿Prefiere el acceso por teléfono? Llame al +1 689 400 7175 e ingrese su ID de cliente.',
+    requestPhoneOrWeb: 'Use el portal web para solicitudes en línea o llame para interpretación directa por teléfono.',
 
     footerCompany: 'Rolling Translations LLC',
     footerAddress: '1317 Edgewater Dr Suite 1064, Orlando, FL 32804',
@@ -622,6 +655,10 @@ export const translations = {
     heroTitleHighlight: '随时满足您的需求',
     heroSubtitle:
       '几秒钟内即可与认证口译员连接。立即登录申请口译员。医疗、法律、商务等领域均可使用。',
+    heroPhoneOption: '在线或电话获取口译服务 — 无需等待。',
+    phoneNumber: '+1 689 400 7175',
+    callNow: '立即拨打',
+    learnPhoneAccess: '了解电话访问方式',
     getStarted: '立即开始',
 
     opiBadge: '电话口译',
@@ -631,8 +668,7 @@ export const translations = {
     opiBullet1: '即时连接 — 无需设置或下载应用',
     opiBullet2: '适用于医疗、法律、保险和客户服务',
     opiBullet3: '支持电脑或智能手机',
-
-    vriBadge: '视频口译',
+    opiPhoneAccess: '更喜欢电话？拨打 +1 689 400 7175 并输入您的客户ID即可直接使用电话口译服务。',
     vriTitle: 'VRI — 视频远程口译',
     vriDesc:
       '当面对面交流很重要时，VRI 让您通过视频看到和听到口译员。适用于医疗预约、法律程序、商务会议或任何需要视觉线索和非语言交流以确保清晰度的场景。',
@@ -659,6 +695,17 @@ export const translations = {
     trustLine: '深受医疗、法律和商务专业人士信赖',
     trustSubline: '保密 • 认证 • 按需',
     getStartedToday: '立即开始',
+
+    phoneAccessTitle: '电话口译访问',
+    phoneAccessSubtitle: '直接通过电话申请OPI',
+    phoneAccessCallLabel: '拨打',
+    phoneAccessClientIdLabel: '客户ID',
+    phoneAccessClientIdHint: '通话时按提示输入此客户ID。',
+    phoneAccessCopyPhone: '复制电话号码',
+    phoneAccessCopyId: '复制客户ID',
+    phoneAccessCopied: '已复制',
+    requestPhoneAlternative: '更喜欢电话访问？拨打 +1 689 400 7175 并输入您的客户ID。',
+    requestPhoneOrWeb: '使用网络门户进行在线申请，或拨打电话进行直接电话口译。',
 
     footerCompany: 'Rolling Translations LLC',
     footerAddress: '1317 Edgewater Dr Suite 1064, Orlando, FL 32804',

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
+import { CopyButton } from '@/components/CopyButton';
 
 function TutorialsSection({ t }: { t: (k: TranslationKeys) => string }) {
   return (
@@ -100,15 +101,26 @@ export default function ClientPageClient() {
     rejected: boolean;
     pending: boolean;
   } | null>(null);
+  const [orgs, setOrgs] = useState<{ id: string; name: string; phoneClientId?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/client/approval-status')
       .then((r) => r.json())
       .then(setApprovalStatus)
-      .catch(() => setApprovalStatus({ approved: false, rejected: false, pending: true }))
-      .finally(() => setLoading(false));
+      .catch(() => setApprovalStatus({ approved: false, rejected: false, pending: true }));
   }, []);
+
+  useEffect(() => {
+    fetch('/api/organizations')
+      .then((r) => r.json())
+      .then(setOrgs)
+      .catch(() => setOrgs([]));
+  }, []);
+
+  useEffect(() => {
+    if (approvalStatus !== null) setLoading(false);
+  }, [approvalStatus]);
 
   if (loading) return <div className="text-slate-600">{t('loading')}</div>;
 
@@ -163,6 +175,42 @@ export default function ClientPageClient() {
           <p className="text-slate-600">{t('viewStatusOfRequests')}</p>
         </Link>
       </div>
+
+      {orgs.some((o) => o.phoneClientId) && (
+        <div className="mt-8 p-6 bg-white rounded-xl border border-slate-200">
+          <h2 className="text-lg font-bold text-slate-900 mb-1">{t('phoneAccessTitle')}</h2>
+          <p className="text-slate-600 text-sm mb-4">{t('phoneAccessSubtitle')}</p>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-700 font-medium">{t('phoneAccessCallLabel')}:</span>
+              <a
+                href="tel:+16894007175"
+                className="text-brand-600 font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 rounded"
+                aria-label={`Call ${t('phoneNumber')} for phone interpretation`}
+              >
+                {t('phoneNumber')}
+              </a>
+              <CopyButton
+                text={t('phoneNumber')}
+                label={t('phoneAccessCopyPhone')}
+                copiedLabel={t('phoneAccessCopied')}
+              />
+            </div>
+            {orgs[0]?.phoneClientId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-slate-700 font-medium">{t('phoneAccessClientIdLabel')}:</span>
+                <span className="font-mono font-semibold text-slate-900">{orgs[0].phoneClientId}</span>
+                <CopyButton
+                  text={orgs[0].phoneClientId}
+                  label={t('phoneAccessCopyId')}
+                  copiedLabel={t('phoneAccessCopied')}
+                />
+              </div>
+            )}
+            <p className="text-slate-600 text-sm">{t('phoneAccessClientIdHint')}</p>
+          </div>
+        </div>
+      )}
 
       <TutorialsSection t={t} />
     </div>

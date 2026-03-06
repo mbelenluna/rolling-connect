@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const patchSchema = z.object({
-  phoneClientId: z.string().min(4).max(20).regex(/^[0-9a-zA-Z]+$/).nullable(),
+  phoneClientId: z.string().length(6).regex(/^[0-9]+$/).nullable(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -57,8 +57,11 @@ export default function HomeContent() {
             <br />
             <span className="text-brand-600">{t(locale, 'heroTitleHighlight')}</span>
           </h1>
-          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto mb-8 sm:mb-10 px-2">
+          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto mb-4 px-2">
             {t(locale, 'heroSubtitle')}
+          </p>
+          <p className="text-base text-slate-600 max-w-2xl mx-auto mb-8 sm:mb-10 px-2 font-medium">
+            {t(locale, 'heroPhoneOption')}
           </p>
           <div className="flex gap-3 sm:gap-4 justify-center flex-wrap px-2">
             <Link
@@ -73,6 +76,16 @@ export default function HomeContent() {
             >
               {t(locale, 'signIn')}
             </Link>
+            <a
+              href="tel:+16894007175"
+              className="px-8 py-4 border-2 border-brand-600 text-brand-600 rounded-xl font-semibold hover:bg-brand-50 transition inline-flex items-center gap-2"
+              aria-label={`Call ${t(locale, 'phoneNumber')} for phone interpretation`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              {t(locale, 'callNow')}
+            </a>
           </div>
         </div>
       </section>
@@ -101,6 +114,23 @@ export default function HomeContent() {
                   <span>{t(locale, 'opiBullet3')}</span>
                 </li>
               </ul>
+              <div className="mt-6 p-4 bg-brand-50 border border-brand-200 rounded-xl">
+                <p className="text-slate-700 font-medium mb-2">{t(locale, 'opiPhoneAccess')}</p>
+                <a
+                  href="tel:+16894007175"
+                  className="inline-flex items-center gap-2 text-brand-600 font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 rounded"
+                  aria-label={`Call ${t(locale, 'phoneNumber')} for phone interpretation`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  {t(locale, 'phoneNumber')}
+                </a>
+                <span className="mx-2 text-slate-500">·</span>
+                <Link href="#how-it-works" className="text-brand-600 font-medium hover:underline">
+                  {t(locale, 'learnPhoneAccess')}
+                </Link>
+              </div>
             </div>
             <div className="flex-1 flex justify-center">
               <div className="w-48 h-48 rounded-2xl bg-gradient-to-br from-brand-600/20 to-brand-600/5 flex items-center justify-center">
@@ -150,7 +180,7 @@ export default function HomeContent() {
       </section>
 
       {/* How it works */}
-      <section className="py-10 sm:py-16 bg-white">
+      <section id="how-it-works" className="py-10 sm:py-16 bg-white scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-slate-900 mb-4">{t(locale, 'howItWorksTitle')}</h2>

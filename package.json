@@ -13,6 +13,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "clean:client-requests": "node scripts/clean-client-requests.js",
+    "backfill:client-ids": "ts-node -P scripts/tsconfig.json scripts/backfill-client-ids.ts",
     "reset-test-users": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/reset-test-users.ts"
   },
   "dependencies": {

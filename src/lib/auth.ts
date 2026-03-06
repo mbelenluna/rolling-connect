@@ -84,10 +84,13 @@ export const authOptions: NextAuthOptions = {
           });
           sendInterpreterWelcomeEmail(email, name).catch((e) => console.error('Interpreter welcome email failed:', e));
         } else {
+          const { generateClientId } = await import('@/lib/client-id');
+          const phoneClientId = await generateClientId();
           const org = await prisma.organization.create({
             data: {
               name: `${newUser.name}'s Organization`,
               billingEmail: email,
+              phoneClientId,
             },
           });
           await prisma.organizationMember.create({
