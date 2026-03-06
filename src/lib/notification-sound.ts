@@ -58,11 +58,16 @@ export function primeAudioForNotifications(): void {
   }
 }
 
+let currentNotificationAudio: HTMLAudioElement | null = null;
+
 export function playNotificationSound(): void {
   if (typeof window === 'undefined') return;
 
+  stopNotificationSound();
+
   const audio = new Audio(NOTIFICATION_SOUND_PATH);
   audio.volume = 0.8;
+  currentNotificationAudio = audio;
 
   const playPromise = audio.play();
   if (playPromise !== undefined) {
@@ -71,5 +76,20 @@ export function playNotificationSound(): void {
     });
   } else {
     playWebAudioBeep();
+  }
+}
+
+/**
+ * Stop the notification sound (e.g. when interpreter accepts or declines).
+ */
+export function stopNotificationSound(): void {
+  if (currentNotificationAudio) {
+    try {
+      currentNotificationAudio.pause();
+      currentNotificationAudio.currentTime = 0;
+    } catch {
+      // Ignore
+    }
+    currentNotificationAudio = null;
   }
 }

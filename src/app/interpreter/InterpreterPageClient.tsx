@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
 import Link from 'next/link';
-import { playNotificationSound, primeAudioForNotifications } from '@/lib/notification-sound';
+import { playNotificationSound, primeAudioForNotifications, stopNotificationSound } from '@/lib/notification-sound';
 import { requestNotificationPermission, showOfferNotification } from '@/lib/browser-notification';
 
 type Offer = {
@@ -111,12 +111,14 @@ export default function InterpreterPageClient() {
     });
 
     socket.on('job_assigned', (data: AssignedJob) => {
+      stopNotificationSound();
       setAssignedJob(data);
       setOffers((prev) => prev.filter((o) => o.jobId !== data.jobId));
       router.push(`/interpreter/call/${data.jobId}`);
     });
 
     socket.on('offer_revoked', (data: { jobId: string }) => {
+      stopNotificationSound();
       setOffers((prev) => prev.filter((o) => o.jobId !== data.jobId));
     });
 
@@ -139,6 +141,7 @@ export default function InterpreterPageClient() {
   };
 
   const acceptOffer = async (jobId: string) => {
+    stopNotificationSound();
     setAccepting(jobId);
     try {
       const res = await fetch(`/api/offers/${jobId}/accept`, { method: 'POST' });
@@ -159,6 +162,7 @@ export default function InterpreterPageClient() {
   };
 
   const declineOffer = async (jobId: string) => {
+    stopNotificationSound();
     await fetch(`/api/offers/${jobId}/decline`, { method: 'POST' });
     setOffers((prev) => prev.filter((o) => o.jobId !== jobId));
   };
