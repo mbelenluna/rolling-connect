@@ -72,9 +72,11 @@ export async function POST(
     }
 
     // Delete the Daily room to disconnect ALL participants (client, interpreter, guests).
-    // This prevents invitees from staying in the meeting after the host ends the call.
-    const roomName = `rolling-${call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-    await deleteDailyRoom(roomName);
+    // Skip for phone OPI — Twilio conference ends when interpreter disconnects (endConferenceOnExit).
+    if (!call.roomId.startsWith('rolling-')) {
+      const roomName = `rolling-${call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+      await deleteDailyRoom(roomName);
+    }
 
     return NextResponse.json({ success: true });
   } catch (e) {

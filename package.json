@@ -21,6 +21,7 @@
     "@livekit/components-react": "^2.0.0",
     "@prisma/client": "^5.22.0",
     "@sendgrid/mail": "^8.1.6",
+    "@twilio/voice-sdk": "^2.18.0",
     "ably": "^2.19.0",
     "bcryptjs": "^2.4.3",
     "gocardless-nodejs": "^8.0.2",

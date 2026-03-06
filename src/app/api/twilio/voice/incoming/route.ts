@@ -121,8 +121,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return sayAndHangup(
-      'Your interpretation request has been submitted. Interpreters have been notified. Please use our website to join the call when you receive an assignment. Goodbye.'
+    // Put caller in Twilio Conference — they stay on the line and hear interpreter when one joins
+    const conferenceName = `rolling-${result.jobId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+    const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const base = baseUrl.replace(/\/$/, '');
+    const waitUrl = `${base}/api/twilio/voice/hold-message`;
+    const statusCallback = `${base}/api/twilio/voice/conference-status`;
+    return twiml(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your request has been received. Please hold while we connect you to an interpreter.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="false" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="GET" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="participant-leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
     );
   }
 

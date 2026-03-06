@@ -107,6 +107,15 @@ export async function createPhoneRequest(
     },
   });
 
+  // Create Call immediately so caller can be put in Twilio Conference (stays on line until interpreter joins)
+  const conferenceName = `rolling-${job.id.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+  await prisma.call.create({
+    data: {
+      jobId: job.id,
+      roomId: conferenceName,
+    },
+  });
+
   await prisma.interpretationRequest.update({
     where: { id: request.id },
     data: { status: interpreters.length > 0 ? 'offered' : 'canceled' },

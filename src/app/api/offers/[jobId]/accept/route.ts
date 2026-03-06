@@ -52,12 +52,16 @@ export async function POST(
       data: { status: 'assigned' },
     });
 
-    const call = await tx.call.create({
-      data: {
-        jobId,
-        roomId: `room_${jobId}_${Date.now()}`,
-      },
-    });
+    // Phone-originated requests create Call in phone-request; web requests create it here
+    let call = await tx.call.findUnique({ where: { jobId } });
+    if (!call) {
+      call = await tx.call.create({
+        data: {
+          jobId,
+          roomId: `room_${jobId}_${Date.now()}`,
+        },
+      });
+    }
 
     return { success: true, job: { ...job, status: 'assigned' as const, call } };
   });

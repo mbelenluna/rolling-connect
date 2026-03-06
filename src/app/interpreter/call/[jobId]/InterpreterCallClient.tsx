@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import CallRoom from '@/app/components/CallRoom';
+import TwilioCallRoom from '@/app/components/TwilioCallRoom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
@@ -11,7 +12,15 @@ export default function InterpreterCallClient() {
   const { locale } = useLanguage();
   const t = (k: TranslationKeys) => getTranslation(locale, k);
   const jobId = params.jobId as string;
-  const [data, setData] = useState<{ callId?: string; dailyUrl: string | null; dailyError?: string; serviceType: string } | null>(null);
+  const [data, setData] = useState<{
+    callId?: string;
+    dailyUrl: string | null;
+    dailyError?: string;
+    serviceType: string;
+    isPhoneOriginated?: boolean;
+    twilioToken?: string;
+    conferenceName?: string;
+  } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -34,6 +43,20 @@ export default function InterpreterCallClient() {
   }
 
   if (!data) return <div className="text-slate-600">{t('loadingCall')}</div>;
+
+  if (data.isPhoneOriginated && data.twilioToken && data.conferenceName && data.callId) {
+    return (
+      <TwilioCallRoom
+        twilioToken={data.twilioToken}
+        conferenceName={data.conferenceName}
+        callId={data.callId}
+        backHref="/interpreter"
+        backLabel="Back to Dashboard"
+        summaryHref={`/interpreter/call/${jobId}/summary`}
+        endCallEndpoint={`/api/calls/${data.callId}/end`}
+      />
+    );
+  }
 
   return (
     <CallRoom

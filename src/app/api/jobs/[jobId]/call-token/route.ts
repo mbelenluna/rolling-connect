@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+/** Phone-originated OPI: roomId is the Twilio conference name (starts with rolling-) */
+function isPhoneOriginated(roomId: string): boolean {
+  return roomId.startsWith('rolling-');
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ jobId: string }> }
@@ -10,6 +15,7 @@ export async function GET(
   const { authOptions } = await import('@/lib/auth');
   const { prisma } = await import('@/lib/prisma');
   const { createDailyMeetingToken } = await import('@/lib/daily');
+  const { createTwilioVoiceToken } = await import('@/lib/twilio-token');
 
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,7 +33,36 @@ export async function GET(
   if (job.assignedInterpreterId !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!job.call) return NextResponse.json({ error: 'Call not created' }, { status: 500 });
 
-  const roomName = `rolling-${job.call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+  const roomId = job.call.roomId;
+  const conferenceName = roomId;
+
+  if (isPhoneOriginated(roomId)) {
+    // Interpreter joins Twilio Conference (caller is already on the line)
+    const tokenResult = createTwilioVoiceToken(`interpreter-${userId}`);
+    if ('error' in tokenResult) {
+      return NextResponse.json({
+        callId: job.call.id,
+        roomId,
+        serviceType: job.request.serviceType,
+        dailyUrl: null,
+        dailyError: tokenResult.error,
+        isPhoneOriginated: true,
+      });
+    }
+    return NextResponse.json({
+      callId: job.call.id,
+      roomId,
+      serviceType: job.request.serviceType,
+      dailyUrl: null,
+      dailyError: null,
+      isPhoneOriginated: true,
+      twilioToken: tokenResult.token,
+      conferenceName,
+    });
+  }
+
+  // Web-originated: use Daily
+  const roomName = `rolling-${roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
   const tokenResult = await createDailyMeetingToken({
     roomName,
     userName: `${userName} (Interpreter)`,
