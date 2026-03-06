@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
 import Link from 'next/link';
-import { playNotificationSound } from '@/lib/notification-sound';
+import { playNotificationSound, primeAudioForNotifications } from '@/lib/notification-sound';
 import { requestNotificationPermission, showOfferNotification } from '@/lib/browser-notification';
 
 type Offer = {
@@ -133,6 +133,7 @@ export default function InterpreterPageClient() {
     });
     setAvailability(status);
     if (status === 'online') {
+      primeAudioForNotifications();
       requestNotificationPermission();
     }
   };
