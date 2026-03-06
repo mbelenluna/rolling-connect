@@ -28,7 +28,7 @@ export default function RequestPageClient() {
     interpretationType: null as 'human' | 'ai' | null,
     serviceType: 'OPI' as 'OPI' | 'VRI',
     sourceLanguage: 'en',
-    targetLanguage: 'es',
+    targetLanguage: '',
     specialty: '',
     industry: '',
     costCenter: '',
@@ -133,6 +133,10 @@ export default function RequestPageClient() {
     }
     if (!form.interpretationType) {
       setError(t('selectInterpretationType'));
+      return;
+    }
+    if (!form.targetLanguage) {
+      setError(t('targetLanguageRequired'));
       return;
     }
     if (form.interpretationType === 'human' && !form.specialty) {
@@ -344,12 +348,13 @@ export default function RequestPageClient() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">{t('targetLanguage')}</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('targetLanguage')} *</label>
             <select
               value={form.targetLanguage}
               onChange={(e) => setForm((f) => ({ ...f, targetLanguage: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600 ${!form.targetLanguage ? 'border-amber-400 bg-amber-50/50' : 'border-slate-200'}`}
             >
+              <option value="">{t('selectTargetLanguage')}</option>
               {languages.map((l) => (
                 <option key={l.code} value={l.code}>{getTranslatedLanguageName(locale, l.code, l.name)}</option>
               ))}

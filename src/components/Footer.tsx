@@ -34,6 +34,7 @@ export default function Footer() {
 
   const publicLinks = [
     { href: '/', label: t('footerHome') },
+    { href: '/pricing', label: t('transparentPricing') },
     { href: '/login', label: t('signIn') },
     { href: '/login?register=1', label: t('register') },
   ];

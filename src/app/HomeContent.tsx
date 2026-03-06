@@ -212,7 +212,14 @@ export default function HomeContent() {
       <section className="py-10 sm:py-16 bg-slate-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-slate-600 mb-2">{t(locale, 'trustLine')}</p>
-          <p className="text-slate-500 text-sm mb-10">{t(locale, 'trustSubline')}</p>
+          <p className="text-slate-500 text-sm mb-6">{t(locale, 'trustSubline')}</p>
+          <Link
+            href="/pricing"
+            className="inline-block text-brand-600 font-semibold hover:underline mb-8"
+          >
+            {t(locale, 'transparentPricing')}
+          </Link>
+          <br />
           <Link
             href="/login?register=1"
             className="inline-flex items-center gap-2 px-8 py-4 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition shadow-lg shadow-brand-600/25"

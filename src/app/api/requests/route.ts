@@ -13,7 +13,7 @@ const schema = z.object({
   interpretationType: z.enum(['human', 'ai']).default('human'),
   serviceType: z.enum(['OPI', 'VRI']),
   sourceLanguage: z.string(),
-  targetLanguage: z.string(),
+  targetLanguage: z.string().min(1, 'Target language is required'),
   specialty: z.string(),
   industry: z.string().optional(),
   costCenter: z.string().optional(),

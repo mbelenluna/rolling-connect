@@ -100,6 +100,8 @@ export async function GET(req: Request) {
     // Session lost (e.g. different device) - redirect to login; user can sign in to access
     redirect(`/login?message=payment_setup_complete&callbackUrl=${encodeURIComponent(target)}`);
   } catch (err) {
+    const e = err as { digest?: string; message?: string };
+    if (e?.digest?.startsWith('NEXT_REDIRECT') || e?.message === 'NEXT_REDIRECT') throw err;
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Billing confirm error:', msg, err);
     redirect(`/subscribe?error=confirm_failed&errorDetail=${encodeURIComponent(msg.slice(0, 100))}`);
