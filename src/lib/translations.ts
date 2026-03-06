@@ -669,6 +669,8 @@ export const translations = {
     opiBullet2: '适用于医疗、法律、保险和客户服务',
     opiBullet3: '支持电脑或智能手机',
     opiPhoneAccess: '更喜欢电话？拨打 +1 689 400 7175 并输入您的客户ID即可直接使用电话口译服务。',
+
+    vriBadge: '视频口译',
     vriTitle: 'VRI — 视频远程口译',
     vriDesc:
       '当面对面交流很重要时，VRI 让您通过视频看到和听到口译员。适用于医疗预约、法律程序、商务会议或任何需要视觉线索和非语言交流以确保清晰度的场景。',
