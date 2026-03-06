@@ -95,6 +95,7 @@ model User {
 model Organization {
   id            String   @id @default(uuid())
   name          String
+  phoneClientId String?  @unique @map("phone_client_id")  // For IVR: caller enters this to identify org (e.g. 6–8 digits)
   billingEmail  String?  @map("billing_email")
   billingAddress Json?   @map("billing_address")
   costCenters   Json?    @map("cost_centers")
