@@ -23,6 +23,7 @@ export async function GET(
 
   return NextResponse.json({
     serviceType: call.job.request.serviceType,
+    interpretationType: call.job.request.interpretationType ?? 'human',
     sourceLanguage: call.job.request.sourceLanguage ?? 'en',
     targetLanguage: call.job.request.targetLanguage ?? 'es',
   });

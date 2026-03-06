@@ -32,6 +32,7 @@ export async function GET(req: Request) {
           sourceLanguage: true,
           serviceType: true,
           specialty: true,
+          interpretationType: true,
           createdAt: true,
           createdByUserId: true,
           createdBy: { select: { id: true, name: true, email: true } },
@@ -82,8 +83,8 @@ export async function GET(req: Request) {
         languagePair: `${j.request.sourceLanguage} → ${j.request.targetLanguage}`,
         durationSeconds: duration,
         durationMin: Math.ceil(duration / 60),
-        clientChargeCents: clientChargeCents(duration, targetLang),
-        interpreterPayCents: interpreterPayCents(duration, targetLang),
+        clientChargeCents: clientChargeCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
+        interpreterPayCents: interpreterPayCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
         monthKey,
       };
     });

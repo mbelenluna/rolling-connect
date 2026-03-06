@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         data: { organizationId: org.id, userId: user.id, role: 'owner' },
       });
       const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
       await prisma.emailConfirmationToken.create({
         data: { userId: user.id, token, expiresAt },
       });

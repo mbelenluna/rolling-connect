@@ -93,7 +93,7 @@ export const translations = {
     createAnAccount: 'Create an account',
     invalidCredentials: 'Invalid credentials',
     somethingWentWrong: 'Something went wrong',
-    expiredTokenMessage: 'This verification link has expired. Verification links are valid for 7 days.',
+    expiredTokenMessage: 'This verification link has expired or has already been used. Verification links are valid for 14 days.',
     resendVerificationLink: 'Request a new verification email',
     registrationFailed: 'Registration failed',
     googleSignInNotConfigured:
@@ -105,6 +105,9 @@ export const translations = {
     verifyEmailSubtitle: 'We\'ve sent you an email to confirm your account.',
     verifyEmailMessage: 'We\'ve sent an email to your address. Please click the link in the email to verify your account and start using Rolling Connect. You will not be able to use the platform until your email is verified.',
     verifyEmailCheckSpam: 'If you don\'t see the email, check your spam folder.',
+    confirmEmailTitle: 'Confirm your email address',
+    confirmEmailMessage: 'Click the button below to confirm your email address and activate your account.',
+    confirmEmailButton: 'Confirm my email',
     resendVerificationEmail: 'Resend verification email',
     resendVerificationSent: 'Verification email sent. Check your inbox.',
     resendVerificationError: 'Failed to send. Please try again.',
@@ -125,6 +128,7 @@ export const translations = {
     redirectingGoCardlessNote: 'Complete the payment setup. You will be redirected back to the portal when finished.',
     gocardlessCompleteTitle: 'Thank you!',
     gocardlessCompleteMessage: 'Your account has been approved. You can now start requesting interpretation.',
+    paymentSetupCompleteMessage: 'Your payment setup is complete. Sign in below to access your account.',
     startRequesting: 'Start requesting interpretation',
     submit: 'Submit',
 
@@ -288,6 +292,8 @@ export const translations = {
     faq5A: 'Check your email from info@rolling-translations.com. Complete the registration and payment setup. Once approved, you can request interpreters immediately.',
 
     joinAiCallTitle: 'Join AI Call',
+    joinHumanCallTitle: 'Join Video Call',
+    joinHumanCallSubtitle: 'You were invited to join a call with a human interpreter',
     joinCallLanguageToggleHint: 'You can change this anytime during the call using the language toggle.',
     loadingCallRoom: 'Loading call room…',
     loadingCall: 'Loading call…',
@@ -385,7 +391,7 @@ export const translations = {
     createAnAccount: 'Crear una cuenta',
     invalidCredentials: 'Usuario y/o contraseña inválidos',
     somethingWentWrong: 'Algo salió mal',
-    expiredTokenMessage: 'Este enlace de verificación ha expirado. Los enlaces son válidos por 7 días.',
+    expiredTokenMessage: 'Este enlace de verificación ha expirado o ya ha sido utilizado. Los enlaces son válidos por 14 días.',
     resendVerificationLink: 'Solicitar un nuevo correo de verificación',
     registrationFailed: 'Registro fallido',
     googleSignInNotConfigured:
@@ -397,6 +403,9 @@ export const translations = {
     verifyEmailSubtitle: 'Le hemos enviado un correo para confirmar su cuenta.',
     verifyEmailMessage: 'Hemos enviado un correo a su dirección. Haga clic en el enlace del correo para verificar su cuenta y comenzar a usar Rolling Connect. No podrá usar la plataforma hasta que verifique su correo.',
     verifyEmailCheckSpam: 'Si no ve el correo, revise su carpeta de spam.',
+    confirmEmailTitle: 'Confirme su dirección de correo electrónico',
+    confirmEmailMessage: 'Haga clic en el botón de abajo para confirmar su correo electrónico y activar su cuenta.',
+    confirmEmailButton: 'Confirmar mi correo',
     resendVerificationEmail: 'Reenviar correo de verificación',
     resendVerificationSent: 'Correo de verificación enviado. Revise su bandeja.',
     resendVerificationError: 'Error al enviar. Intente de nuevo.',
@@ -417,6 +426,7 @@ export const translations = {
     redirectingGoCardlessNote: 'Complete la configuración de pago. Será redirigido al portal cuando termine.',
     gocardlessCompleteTitle: '¡Gracias!',
     gocardlessCompleteMessage: 'Su cuenta ha sido aprobada. Ya puede solicitar interpretación.',
+    paymentSetupCompleteMessage: 'La configuración de pago se ha completado. Inicie sesión para acceder a su cuenta.',
     startRequesting: 'Comenzar a solicitar interpretación',
     submit: 'Enviar',
 
@@ -576,6 +586,8 @@ export const translations = {
     faq5A: 'Revise su correo de info@rolling-translations.com. Complete el registro y la configuración de pago. Una vez aprobado, podrá solicitar intérpretes de inmediato.',
 
     joinAiCallTitle: 'Unirse a llamada con IA',
+    joinHumanCallTitle: 'Unirse a videollamada',
+    joinHumanCallSubtitle: 'Lo han invitado a unirse a una llamada con un intérprete humano',
     joinCallLanguageToggleHint: 'Puede cambiarlo en cualquier momento durante la llamada usando el selector de idioma.',
     loadingCallRoom: 'Cargando la sala de llamada…',
     loadingCall: 'Cargando llamada…',
@@ -673,7 +685,7 @@ export const translations = {
     createAnAccount: '创建账户',
     invalidCredentials: '凭据无效',
     somethingWentWrong: '出了点问题',
-    expiredTokenMessage: '此验证链接已过期。验证链接有效期为7天。',
+    expiredTokenMessage: '此验证链接已过期或已被使用。验证链接有效期为14天。',
     resendVerificationLink: '请求新的验证邮件',
     registrationFailed: '注册失败',
     googleSignInNotConfigured:
@@ -685,6 +697,9 @@ export const translations = {
     verifyEmailSubtitle: '我们已向您发送了一封确认账户的邮件。',
     verifyEmailMessage: '我们已向您的邮箱发送了一封邮件。请点击邮件中的链接以验证您的账户并开始使用 Rolling Connect。在验证邮箱之前，您将无法使用该平台。',
     verifyEmailCheckSpam: '如果您没有收到邮件，请检查您的垃圾邮件文件夹。',
+    confirmEmailTitle: '确认您的电子邮件地址',
+    confirmEmailMessage: '点击下方按钮确认您的电子邮件地址并激活您的账户。',
+    confirmEmailButton: '确认我的邮箱',
     resendVerificationEmail: '重新发送验证邮件',
     resendVerificationSent: '验证邮件已发送。请查收。',
     resendVerificationError: '发送失败。请重试。',
@@ -705,6 +720,7 @@ export const translations = {
     redirectingGoCardlessNote: '完成付款设置。完成后将自动返回本平台。',
     gocardlessCompleteTitle: '感谢！',
     gocardlessCompleteMessage: '您的账户已批准。现在可以开始申请口译服务。',
+    paymentSetupCompleteMessage: '您的付款设置已完成。请登录以访问您的账户。',
     startRequesting: '开始申请口译',
     submit: '提交',
 
@@ -864,6 +880,8 @@ export const translations = {
     faq5A: '请查收 info@rolling-translations.com 的邮件。完成注册和付款设置。审批通过后即可立即申请口译员。',
 
     joinAiCallTitle: '加入 AI 通话',
+    joinHumanCallTitle: '加入视频通话',
+    joinHumanCallSubtitle: '您被邀请加入由人工口译员进行的通话',
     joinCallLanguageToggleHint: '您可在通话期间随时使用语言切换器更改。',
     loadingCallRoom: '正在加载通话室…',
     loadingCall: '正在加载通话…',
@@ -894,4 +912,59 @@ export type TranslationKeys = keyof (typeof translations)['en'];
 
 export function getTranslation(locale: Locale, key: TranslationKeys): string {
   return translations[locale][key] ?? translations.en[key] ?? String(key);
+}
+
+/** Translated language names for dropdowns (by locale and code) */
+export const languageNamesByLocale: Record<Locale, Record<string, string>> = {
+  en: {
+    en: 'English', es: 'Spanish', zh: 'Chinese', ar: 'Arabic', vi: 'Vietnamese', ko: 'Korean',
+    ru: 'Russian', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese',
+    hi: 'Hindi', th: 'Thai', pl: 'Polish', tr: 'Turkish',
+  },
+  es: {
+    en: 'Inglés', es: 'Español', zh: 'Chino', ar: 'Árabe', vi: 'Vietnamita', ko: 'Coreano',
+    ru: 'Ruso', fr: 'Francés', de: 'Alemán', it: 'Italiano', pt: 'Portugués', ja: 'Japonés',
+    hi: 'Hindi', th: 'Tailandés', pl: 'Polaco', tr: 'Turco',
+  },
+  zh: {
+    en: '英语', es: '西班牙语', zh: '中文', ar: '阿拉伯语', vi: '越南语', ko: '韩语',
+    ru: '俄语', fr: '法语', de: '德语', it: '意大利语', pt: '葡萄牙语', ja: '日语',
+    hi: '印地语', th: '泰语', pl: '波兰语', tr: '土耳其语',
+  },
+};
+
+/** Translated specialty names for dropdowns (by locale and code) */
+export const specialtyNamesByLocale: Record<Locale, Record<string, string>> = {
+  en: {
+    medical: 'Medical', legal: 'Legal', customer_service: 'Customer Service',
+    education: 'Education', general: 'General', other: 'Other',
+  },
+  es: {
+    medical: 'Médico', legal: 'Legal', customer_service: 'Atención al cliente',
+    education: 'Educación', general: 'General', other: 'Otro',
+  },
+  zh: {
+    medical: '医疗', legal: '法律', customer_service: '客户服务',
+    education: '教育', general: '通用', other: '其他',
+  },
+};
+
+export function getTranslatedLanguageName(locale: Locale, code: string, fallback?: string): string {
+  const baseCode = code.split('-')[0].toLowerCase();
+  return languageNamesByLocale[locale]?.[baseCode]
+    ?? languageNamesByLocale[locale]?.[code]
+    ?? languageNamesByLocale.en?.[baseCode]
+    ?? languageNamesByLocale.en?.[code]
+    ?? fallback
+    ?? code;
+}
+
+export function getTranslatedSpecialtyName(locale: Locale, code: string, fallback?: string): string {
+  const normalized = code.toLowerCase().replace(/\s+/g, '_');
+  return specialtyNamesByLocale[locale]?.[normalized]
+    ?? specialtyNamesByLocale[locale]?.[code]
+    ?? specialtyNamesByLocale.en?.[normalized]
+    ?? specialtyNamesByLocale.en?.[code]
+    ?? fallback
+    ?? code;
 }

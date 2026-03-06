@@ -114,7 +114,7 @@ export function getDailyMeetingUrl(roomName: string, token: string): string {
   return `https://${domain}.daily.co/${roomName}?t=${token}`;
 }
 
-/** Eject all participants from a Daily room (ends call for everyone). */
+/** Eject specific participants from a Daily room by user_id. */
 export async function ejectDailyParticipants(roomName: string, userIds: string[]): Promise<void> {
   const apiKey = process.env.DAILY_API_KEY?.trim();
   if (!apiKey || userIds.length === 0) return;
@@ -133,5 +133,26 @@ export async function ejectDailyParticipants(roomName: string, userIds: string[]
     }
   } catch (e) {
     console.error('Daily eject error:', e);
+  }
+}
+
+/**
+ * Delete a Daily room. This disconnects ALL participants (client, interpreter, guests).
+ * Use when ending a call to ensure invitees cannot stay in the meeting.
+ */
+export async function deleteDailyRoom(roomName: string): Promise<void> {
+  const apiKey = process.env.DAILY_API_KEY?.trim();
+  if (!apiKey) return;
+  try {
+    const res = await fetch(`${DAILY_API}/rooms/${roomName}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text();
+      console.error('Daily delete room failed:', res.status, text);
+    }
+  } catch (e) {
+    console.error('Daily delete room error:', e);
   }
 }

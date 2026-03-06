@@ -23,10 +23,13 @@ type CallRoomProps = {
   cancelEndpoint?: string | null;
   endCallEndpoint?: string | null;
   inviteLinkEndpoint?: string | null;
+  /** For guests: use guest-leave instead of end. Requires inviteToken in body. */
+  guestLeaveEndpoint?: string | null;
+  inviteToken?: string | null;
   role?: 'client' | 'interpreter';
 };
 
-export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, inviteLinkEndpoint, role = 'interpreter' }: CallRoomProps) {
+export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, inviteLinkEndpoint, guestLeaveEndpoint, inviteToken, role = 'interpreter' }: CallRoomProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,19 +41,25 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
   const timerStartRef = useRef<number | null>(null);
   const endedByUserRef = useRef(false);
   const endCallEndpointRef = useRef(endCallEndpoint);
+  const guestLeaveEndpointRef = useRef(guestLeaveEndpoint);
+  const inviteTokenRef = useRef(inviteToken);
   const dailyErrorRef = useRef(dailyError);
   endCallEndpointRef.current = endCallEndpoint;
+  guestLeaveEndpointRef.current = guestLeaveEndpoint;
+  inviteTokenRef.current = inviteToken;
   dailyErrorRef.current = dailyError;
 
   // When user leaves without clicking End Call: end the call so it's completed (not canceled)
   const endCallIfNotByUser = useCallback(() => {
     if (endedByUserRef.current) return;
-    const url = endCallEndpointRef.current;
+    const url = guestLeaveEndpointRef.current || endCallEndpointRef.current;
     if (!url || dailyErrorRef.current) return;
     const duration = timerStartRef.current
       ? Math.max(0, Math.floor((Date.now() - timerStartRef.current) / 1000))
       : 0;
-    const body = JSON.stringify({ durationSeconds: duration });
+    const body = guestLeaveEndpointRef.current && inviteTokenRef.current
+      ? JSON.stringify({ inviteToken: inviteTokenRef.current, durationSeconds: duration })
+      : JSON.stringify({ durationSeconds: duration });
     // Prefer fetch with keepalive + credentials so session cookie is sent reliably
     fetch(url, {
       method: 'POST',
@@ -189,7 +198,8 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
 
   // When user closes tab or navigates away without clicking End Call: end the call
   useEffect(() => {
-    if (!tokenUrl || dailyError || !endCallEndpoint) return;
+    const endUrl = guestLeaveEndpoint || endCallEndpoint;
+    if (!tokenUrl || dailyError || !endUrl) return;
     const handler = () => endCallIfNotByUser();
     window.addEventListener('beforeunload', handler);
     window.addEventListener('pagehide', handler);
@@ -199,7 +209,7 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
       // End call when component unmounts (e.g. client-side navigation, link click)
       endCallIfNotByUser();
     };
-  }, [tokenUrl, dailyError, endCallEndpoint, endCallIfNotByUser]);
+  }, [tokenUrl, dailyError, endCallEndpoint, guestLeaveEndpoint, endCallIfNotByUser]);
 
   // Timer tick when both have joined
   useEffect(() => {
@@ -218,13 +228,17 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
   }, [dailyError, cancelEndpoint]);
 
   const handleEndOrCancel = async () => {
-    const isEndingCall = endCallEndpoint && tokenUrl && !dailyError;
+    const endUrl = guestLeaveEndpoint || endCallEndpoint;
+    const isEndingCall = endUrl && tokenUrl && !dailyError;
     if (isEndingCall) {
       endedByUserRef.current = true;
-      fetch(endCallEndpoint, {
+      const body = guestLeaveEndpoint && inviteToken
+        ? JSON.stringify({ inviteToken, durationSeconds: elapsedSeconds })
+        : JSON.stringify({ durationSeconds: elapsedSeconds });
+      fetch(endUrl!, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ durationSeconds: elapsedSeconds }),
+        body,
       }).catch(() => {});
     } else if (cancelEndpoint) {
       await fetch(cancelEndpoint, { method: 'POST' });

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { subscribeToRequest } from '@/lib/realtime/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getTranslation, type TranslationKeys } from '@/lib/translations';
+import { getTranslation, getTranslatedLanguageName, getTranslatedSpecialtyName, type TranslationKeys } from '@/lib/translations';
 
 export default function RequestPageClient() {
   const { locale } = useLanguage();
@@ -304,7 +304,7 @@ export default function RequestPageClient() {
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
             >
               {languages.map((l) => (
-                <option key={l.code} value={l.code}>{l.name}</option>
+                <option key={l.code} value={l.code}>{getTranslatedLanguageName(locale, l.code, l.name)}</option>
               ))}
             </select>
           </div>
@@ -316,7 +316,7 @@ export default function RequestPageClient() {
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
             >
               {languages.map((l) => (
-                <option key={l.code} value={l.code}>{l.name}</option>
+                <option key={l.code} value={l.code}>{getTranslatedLanguageName(locale, l.code, l.name)}</option>
               ))}
             </select>
           </div>
@@ -333,7 +333,7 @@ export default function RequestPageClient() {
               >
                 <option value="">{t('selectSpecialty')}</option>
                 {specialties.map((s) => (
-                  <option key={s.code} value={s.code}>{s.name}</option>
+                  <option key={s.code} value={s.code}>{getTranslatedSpecialtyName(locale, s.code, s.name)}</option>
                 ))}
               </select>
             </div>

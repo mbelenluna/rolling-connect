@@ -4,13 +4,14 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AICallRoom from '@/app/components/AICallRoom';
+import CallRoom from '@/app/components/CallRoom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
 /**
- * Public guest join page for AI calls.
- * Invite link format: /join-invite?u=<encoded_daily_url>&callId=<id>
- * Guests see the same translation UI as the host.
+ * Public guest join page for interpretation calls (AI or human).
+ * Invite link format: /join-invite?u=<encoded_daily_url>&callId=<id>&inviteToken=<token>
+ * AI calls: show translation UI. Human calls: show video/audio call only.
  */
 function JoinInviteContent() {
   const searchParams = useSearchParams();
@@ -25,6 +26,7 @@ function JoinInviteContent() {
     dailyUrl: string | null;
     dailyError?: string;
     serviceType: string;
+    interpretationType: 'human' | 'ai';
     sourceLanguage: string;
     targetLanguage: string;
   } | null>(null);
@@ -59,6 +61,7 @@ function JoinInviteContent() {
           dailyUrl,
           dailyError: d.dailyError,
           serviceType: d.serviceType ?? 'OPI',
+          interpretationType: d.interpretationType ?? 'human',
           sourceLanguage: d.sourceLanguage ?? 'en',
           targetLanguage: d.targetLanguage ?? 'es',
         });
@@ -79,28 +82,50 @@ function JoinInviteContent() {
 
   if (!data) return <div className="text-slate-600">{t('loading')}</div>;
 
+  const isAI = data.interpretationType === 'ai';
+
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-2xl mx-auto px-4">
         <div className="text-center mb-6">
-          <h1 className="text-xl font-bold text-slate-900">{t('joinAiCallTitle')}</h1>
-          <p className="text-slate-600 text-sm mt-1">{t('inviteToCallSubtitle')}</p>
+          <h1 className="text-xl font-bold text-slate-900">
+            {isAI ? t('joinAiCallTitle') : t('joinHumanCallTitle')}
+          </h1>
+          <p className="text-slate-600 text-sm mt-1">
+            {isAI ? t('inviteToCallSubtitle') : t('joinHumanCallSubtitle')}
+          </p>
         </div>
-        <AICallRoom
-          tokenUrl={data.dailyUrl}
-          serviceType={data.serviceType}
-          sourceLanguage={data.sourceLanguage}
-          targetLanguage={data.targetLanguage}
-          backHref="/"
-          backLabel="Leave"
-          summaryHref={requestId ? `/client/call/${requestId}/summary` : '/'}
-          dailyError={data.dailyError}
-          cancelEndpoint={null}
-          endCallEndpoint={null}
-          inviteLinkEndpoint={null}
-          inviteToken={inviteToken}
-          callId={callId}
-        />
+        {isAI ? (
+          <AICallRoom
+            tokenUrl={data.dailyUrl}
+            serviceType={data.serviceType}
+            sourceLanguage={data.sourceLanguage}
+            targetLanguage={data.targetLanguage}
+            backHref="/"
+            backLabel="Leave"
+            summaryHref={requestId ? `/client/call/${requestId}/summary` : '/'}
+            dailyError={data.dailyError}
+            cancelEndpoint={null}
+            endCallEndpoint={null}
+            inviteLinkEndpoint={null}
+            inviteToken={inviteToken}
+            callId={callId}
+          />
+        ) : (
+          <CallRoom
+            tokenUrl={data.dailyUrl}
+            serviceType={data.serviceType}
+            backHref="/"
+            backLabel="Leave"
+            summaryHref={requestId ? `/client/call/${requestId}/summary` : '/'}
+            dailyError={data.dailyError}
+            cancelEndpoint={null}
+            endCallEndpoint={null}
+            guestLeaveEndpoint={callId ? `/api/calls/${callId}/guest-leave` : null}
+            inviteToken={inviteToken}
+            role="client"
+          />
+        )}
       </div>
     </div>
   );

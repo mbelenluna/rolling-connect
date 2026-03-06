@@ -11,6 +11,7 @@ type Request = {
   id: string;
   status: string;
   serviceType: string;
+  interpretationType?: 'human' | 'ai';
   sourceLanguage: string;
   targetLanguage: string;
   specialty: string;
@@ -72,7 +73,7 @@ export default function ClientHistoryClient() {
   const totalCents = requests.reduce((sum, r) => {
     const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
     const duration = job?.call?.durationSeconds ?? 0;
-    return sum + (duration > 0 ? clientChargeCents(duration, r.targetLanguage) : 0);
+    return sum + (duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0);
   }, 0);
 
   const downloadPdf = async () => {
@@ -150,7 +151,7 @@ export default function ClientHistoryClient() {
         const call = job?.call;
         const duration = call?.durationSeconds ?? 0;
         const mins = duration ? Math.ceil(duration / 60) : 0;
-        const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage) : 0;
+        const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
         const dateStr = call?.endedAt
           ? new Date(call.endedAt).toLocaleDateString()
           : new Date(r.createdAt).toLocaleDateString();
@@ -262,7 +263,7 @@ export default function ClientHistoryClient() {
             const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
             const duration = job?.call?.durationSeconds ?? 0;
             const mins = duration ? Math.ceil(duration / 60) : 0;
-            const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage) : 0;
+            const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
             const rating = job?.call?.clientRating;
             const comments = job?.call?.clientComments;
             return (

@@ -19,7 +19,7 @@ export async function POST(
 ) {
   try {
     const { prisma } = await import('@/lib/prisma');
-    const { ejectDailyParticipants } = await import('@/lib/daily');
+    const { deleteDailyRoom } = await import('@/lib/daily');
 
     const { id } = await params;
     let body: unknown;
@@ -70,10 +70,9 @@ export async function POST(
       io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds });
     }
 
+    // Delete the Daily room to disconnect ALL participants (client, interpreter, other guests).
     const roomName = `rolling-${call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-    const userIds = [call.job.request.createdByUserId];
-    if (call.job.assignedInterpreterId) userIds.push(call.job.assignedInterpreterId);
-    await ejectDailyParticipants(roomName, userIds);
+    await deleteDailyRoom(roomName);
 
     return NextResponse.json({ success: true });
   } catch (e) {

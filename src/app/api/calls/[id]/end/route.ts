@@ -16,7 +16,7 @@ export async function POST(
     const { getServerSession } = await import('next-auth');
     const { authOptions } = await import('@/lib/auth');
     const { prisma } = await import('@/lib/prisma');
-    const { ejectDailyParticipants } = await import('@/lib/daily');
+    const { deleteDailyRoom } = await import('@/lib/daily');
 
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -71,11 +71,10 @@ export async function POST(
       io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds });
     }
 
-    // Eject all participants from Daily so the call ends for everyone
+    // Delete the Daily room to disconnect ALL participants (client, interpreter, guests).
+    // This prevents invitees from staying in the meeting after the host ends the call.
     const roomName = `rolling-${call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-    const userIds = [call.job.request.createdByUserId];
-    if (call.job.assignedInterpreterId) userIds.push(call.job.assignedInterpreterId);
-    await ejectDailyParticipants(roomName, userIds);
+    await deleteDailyRoom(roomName);
 
     return NextResponse.json({ success: true });
   } catch (e) {

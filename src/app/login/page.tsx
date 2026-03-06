@@ -66,6 +66,7 @@ function LoginContent() {
   const registeredClient = searchParams.get('registered') === 'client';
   const emailConfirmed = searchParams.get('confirmed') === '1';
   const expiredToken = searchParams.get('error') === 'expired_token';
+  const paymentSetupComplete = searchParams.get('message') === 'payment_setup_complete';
   const confirmedEmail = searchParams.get('email') || '';
 
   const validatePassword = (pwd: string): string | null => {
@@ -195,6 +196,10 @@ function LoginContent() {
                     {t(locale, 'resendVerificationLink')}
                   </Link>
                 )}
+              </div>
+            ) : paymentSetupComplete ? (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-800 font-medium">{t(locale, 'paymentSetupCompleteMessage')}</p>
               </div>
             ) : null}
             <h1 className="text-2xl font-bold text-slate-900 mb-6">

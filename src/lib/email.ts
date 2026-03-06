@@ -8,15 +8,25 @@ const FROM = 'Rolling Translations <info@rolling-translations.com>';
 const REPLY_TO = 'info@rolling-translations.com';
 
 function getBaseUrl(): string {
-  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'http://localhost:3000';
+  let url: string;
+  if (process.env.NEXTAUTH_URL) {
+    url = process.env.NEXTAUTH_URL;
+  } else if (process.env.VERCEL_URL) {
+    url = `https://${process.env.VERCEL_URL}`;
+  } else {
+    return 'http://localhost:3000';
+  }
+  // Ensure production URLs use https (browsers mark http links as unsafe)
+  if (url.startsWith('http://') && !url.includes('localhost')) {
+    url = url.replace(/^http:\/\//, 'https://');
+  }
+  return url;
 }
 
 export async function sendEmailConfirmation(to: string, name: string, token: string): Promise<{ ok: boolean; error?: string }> {
   if (!process.env.SENDGRID_API_KEY) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
 
-  const confirmUrl = `${getBaseUrl()}/api/auth/confirm-email?token=${encodeURIComponent(token)}`;
+  const confirmUrl = `${getBaseUrl()}/verify-email/confirm?token=${encodeURIComponent(token)}`;
 
   const html = `
 <!DOCTYPE html>

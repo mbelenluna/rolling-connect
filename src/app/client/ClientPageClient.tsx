@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
@@ -91,7 +92,9 @@ function TutorialsSection({ t }: { t: (k: TranslationKeys) => string }) {
 
 export default function ClientPageClient() {
   const { locale } = useLanguage();
+  const searchParams = useSearchParams();
   const t = (k: TranslationKeys) => getTranslation(locale, k);
+  const billingSuccess = searchParams.get('billing') === 'success';
   const [approvalStatus, setApprovalStatus] = useState<{
     approved: boolean;
     rejected: boolean;
@@ -132,6 +135,12 @@ export default function ClientPageClient() {
 
   return (
     <div>
+      {billingSuccess && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+          <p className="text-green-800 font-medium">{t('gocardlessCompleteTitle')}</p>
+          <p className="text-green-700 text-sm mt-1">{t('gocardlessCompleteMessage')}</p>
+        </div>
+      )}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">{t('clientDashboard')}</h1>
         <p className="text-slate-600 mt-1">{t('clientDashboardSubtitle')}</p>
