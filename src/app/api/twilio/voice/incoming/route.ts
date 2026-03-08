@@ -80,13 +80,20 @@ export async function POST(req: NextRequest) {
     // Initial call: greet and collect client ID
     const actionUrl = `${getWebhookBaseUrl()}?step=validate_client`;
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Welcome to Rolling Connect. Please enter your 6 digit client ID, followed by the pound key.</Say><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="10"/><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Welcome to Rolling Connect. Please enter your 6 digit client ID, followed by the pound key. You have 20 seconds.</Say><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true"/><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
   if (step === 'validate_client') {
     const clientId = digits.replace(/\D/g, '');
-    if (!clientId || clientId.length !== 6) {
+    if (!clientId) {
+      // Timeout or no digits — give caller another chance
+      const baseUrl = getWebhookBaseUrl();
+      return twiml(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your client ID. Please try again.</Say><Redirect method="POST">${baseUrl}</Redirect></Response>`
+      );
+    }
+    if (clientId.length !== 6) {
       return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
     }
 
@@ -101,7 +108,7 @@ export async function POST(req: NextRequest) {
     const actionUrl = `${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`;
     const langMenu = buildLanguageMenu();
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say><Gather numDigits="1" finishOnKey="#" action="${actionUrl}" method="POST" timeout="10"/><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say><Gather numDigits="1" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true"/><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
