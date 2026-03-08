@@ -9,16 +9,41 @@ import { cancelStaleJobs } from './cancel-job';
 const OFFER_TIMEOUT_SEC = 60;
 const LOG_PREFIX = '[phone-request]';
 
-/** DTMF digit → target language code (source is always English for US callers) */
-export const IVR_LANGUAGE_MAP: Record<string, { source: string; target: string }> = {
-  '1': { source: 'en', target: 'es' },
-  '2': { source: 'en', target: 'zh' },
-  '3': { source: 'en', target: 'ar' },
-  '4': { source: 'en', target: 'vi' },
-  '5': { source: 'en', target: 'ko' },
-  '6': { source: 'en', target: 'ru' },
-  '7': { source: 'en', target: 'fr' },
-  '8': { source: 'en', target: 'en' }, // fallback / other
+/**
+ * DTMF digits → target language (source is always English for US callers).
+ * Keys are 2-digit strings (01, 02, ...). spokenName is used in IVR prompts.
+ */
+export const IVR_LANGUAGE_MAP: Record<string, { source: string; target: string; spokenName: string }> = {
+  '01': { source: 'en', target: 'es', spokenName: 'Spanish' },
+  '02': { source: 'en', target: 'zh-cmn', spokenName: 'Chinese Mandarin' },
+  '03': { source: 'en', target: 'yue', spokenName: 'Chinese Cantonese' },
+  '04': { source: 'en', target: 'ar', spokenName: 'Arabic' },
+  '05': { source: 'en', target: 'vi', spokenName: 'Vietnamese' },
+  '06': { source: 'en', target: 'ko', spokenName: 'Korean' },
+  '07': { source: 'en', target: 'ru', spokenName: 'Russian' },
+  '08': { source: 'en', target: 'fr', spokenName: 'French' },
+  '09': { source: 'en', target: 'de', spokenName: 'German' },
+  '10': { source: 'en', target: 'tl', spokenName: 'Tagalog' },
+  '11': { source: 'en', target: 'pt', spokenName: 'Portuguese' },
+  '12': { source: 'en', target: 'ja', spokenName: 'Japanese' },
+  '13': { source: 'en', target: 'hi', spokenName: 'Hindi' },
+  '14': { source: 'en', target: 'th', spokenName: 'Thai' },
+  '15': { source: 'en', target: 'am', spokenName: 'Amharic' },
+  '16': { source: 'en', target: 'bn', spokenName: 'Bengali' },
+  '17': { source: 'en', target: 'ht', spokenName: 'Haitian Creole' },
+  '18': { source: 'en', target: 'fa', spokenName: 'Farsi' },
+  '19': { source: 'en', target: 'pl', spokenName: 'Polish' },
+  '20': { source: 'en', target: 'it', spokenName: 'Italian' },
+  '21': { source: 'en', target: 'tr', spokenName: 'Turkish' },
+  '22': { source: 'en', target: 'uk', spokenName: 'Ukrainian' },
+  '23': { source: 'en', target: 'ur', spokenName: 'Urdu' },
+  '24': { source: 'en', target: 'hmn', spokenName: 'Hmong' },
+  '25': { source: 'en', target: 'so', spokenName: 'Somali' },
+  '26': { source: 'en', target: 'sw', spokenName: 'Swahili' },
+  '27': { source: 'en', target: 'nl', spokenName: 'Dutch' },
+  '28': { source: 'en', target: 'el', spokenName: 'Greek' },
+  '29': { source: 'en', target: 'he', spokenName: 'Hebrew' },
+  '30': { source: 'en', target: 'pa', spokenName: 'Punjabi' },
 };
 
 export type CreatePhoneRequestResult =

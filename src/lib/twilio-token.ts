@@ -16,7 +16,11 @@ export function createTwilioVoiceToken(identity: string, ttlSeconds = 3600): { t
     return { error: 'TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required' };
   }
   if (!twimlAppSid) {
-    return { error: 'TWILIO_TWIML_APP_SID is required for phone OPI. Create a TwiML App in Twilio Console with Voice URL = /api/twilio/voice/connect-interpreter' };
+    const base = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const voiceUrl = `${base.replace(/\/$/, '')}/api/twilio/voice/connect-interpreter`;
+    return {
+      error: `TWILIO_TWIML_APP_SID is required for phone OPI. Create a TwiML App at console.twilio.com → Voice → TwiML Apps. Set Voice URL to: ${voiceUrl} Then add TWILIO_TWIML_APP_SID to your .env and restart.`,
+    };
   }
 
   const signingKeySid = apiKeySid || accountSid;

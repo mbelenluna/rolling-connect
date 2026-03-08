@@ -43,12 +43,12 @@ function escapeXml(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
+/** Build language menu text. Say is nested inside Gather so user can interrupt by pressing a digit. */
 function buildLanguageMenu(): string {
   const lines = Object.entries(IVR_LANGUAGE_MAP)
-    .filter(([_, v]) => v.target !== 'en')
-    .map(([digit, v]) => `Press ${digit} for ${v.target === 'es' ? 'Spanish' : v.target === 'zh' ? 'Chinese' : v.target}.`)
+    .map(([digit, v]) => `Press ${digit} for ${v.spokenName}.`)
     .join(' ');
-  return `Select your language. ${lines} Press 8 for other.`;
+  return `Select your language. ${lines}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -119,12 +119,13 @@ async function handleIncoming(req: NextRequest) {
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`);
     const langMenu = buildLanguageMenu();
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say><Gather numDigits="1" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true"/><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="2" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
   if (step === 'create_request' && clientIdParam) {
-    const digit = digits.trim() || '8';
+    const raw = digits.replace(/\D/g, '');
+    const digit = raw.length === 1 ? `0${raw}` : raw || '01';
     const result = await createPhoneRequest(clientIdParam, digit);
 
     if (!result.ok) {
