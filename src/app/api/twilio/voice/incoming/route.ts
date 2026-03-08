@@ -119,13 +119,29 @@ async function handleIncoming(req: NextRequest) {
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`);
     const langMenu = buildLanguageMenu();
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="2" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="2" finishOnKey="#" action="${actionUrl}" method="POST" timeout="90" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
+    );
+  }
+
+  if (step === 'language_menu' && clientIdParam) {
+    // Re-show language menu (e.g. after timeout)
+    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientIdParam)}`);
+    const langMenu = buildLanguageMenu();
+    return twiml(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="2" finishOnKey="#" action="${actionUrl}" method="POST" timeout="90" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
   if (step === 'create_request' && clientIdParam) {
     const raw = digits.replace(/\D/g, '');
-    const digit = raw.length === 1 ? `0${raw}` : raw || '01';
+    if (!raw) {
+      // Timeout or no digits — redirect back to language menu
+      const menuUrl = escapeXml(`${getWebhookBaseUrl()}?step=language_menu&clientId=${encodeURIComponent(clientIdParam)}`);
+      return twiml(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your language selection. Please try again.</Say><Redirect method="POST">${menuUrl}</Redirect></Response>`
+      );
+    }
+    const digit = raw.length === 1 ? `0${raw}` : raw;
     const result = await createPhoneRequest(clientIdParam, digit);
 
     if (!result.ok) {
