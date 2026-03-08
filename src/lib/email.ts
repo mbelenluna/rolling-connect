@@ -245,6 +245,57 @@ export async function sendInterpreterWelcomeEmail(to: string, name: string): Pro
   }
 }
 
+export async function sendPasswordResetEmail(to: string, name: string, token: string): Promise<{ ok: boolean; error?: string }> {
+  if (!process.env.SENDGRID_API_KEY) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
+
+  const resetUrl = `${getBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #334155; max-width: 600px; margin: 0 auto; padding: 24px;">
+  <p>Dear ${escapeHtml(name)},</p>
+  
+  <p>We received a request to reset your password for your Rolling Connect account.</p>
+  
+  <p>Please <a href="${escapeHtml(resetUrl)}" style="color: #2A61B5;">click here</a> to set a new password. This link will expire in 1 hour.</p>
+  
+  <p>If you are having trouble accessing the link, copy and paste this URL in your browser:</p>
+  <p style="word-break: break-all; font-size: 14px;">${escapeHtml(resetUrl)}</p>
+  
+  <p>If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+  
+  <p>Kind regards,<br>
+  Rolling Translations<br>
+  Rolling Connect Team</p>
+</body>
+</html>
+  `.trim();
+
+  try {
+    await sgMail.send({
+      to,
+      from: FROM,
+      replyTo: REPLY_TO,
+      subject: 'Reset your password – Rolling Connect',
+      html,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Send password reset email error:', err);
+    const msg = err instanceof Error ? err.message : 'Failed to send';
+    if (err && typeof err === 'object' && 'response' in err) {
+      const res = (err as { response?: { body?: unknown } }).response;
+      if (res?.body) console.error('SendGrid response:', res.body);
+    }
+    return { ok: false, error: msg };
+  }
+}
+
 export async function sendApprovalEmail(
   to: string,
   name: string,

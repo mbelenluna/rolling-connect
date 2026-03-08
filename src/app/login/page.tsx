@@ -137,7 +137,12 @@ function LoginContent() {
         router.replace(params.toString() ? `/login?${params}` : '/login');
       }
       const result = await signIn('credentials', { email, password, redirect: false });
-      if (result?.error) throw new Error(result.error || 'Invalid credentials');
+      if (result?.error) {
+        const msg = result.error === 'CredentialsSignin'
+          ? t(locale, 'invalidCredentials')
+          : result.error;
+        throw new Error(msg);
+      }
 
       router.push(callbackUrl);
     } catch (err) {
@@ -256,7 +261,14 @@ function LoginContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t(locale, 'password')}</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-slate-700">{t(locale, 'password')}</label>
+                {!isRegister && (
+                  <Link href="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700 font-medium">
+                    {t(locale, 'forgotPassword')}
+                  </Link>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}

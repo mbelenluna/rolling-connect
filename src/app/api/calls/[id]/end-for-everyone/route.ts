@@ -30,6 +30,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const endAt = new Date();
   const billableSeconds = await finalizeBillableDuration(callId, endAt);
+  const elapsedSeconds = Math.floor((endAt.getTime() - (call.startedAt ?? call.createdAt).getTime()) / 1000);
+  // For Daily web calls, no billable intervals exist; use elapsed time as fallback
+  const durationSeconds = Math.max(0, elapsedSeconds);
+  const billableDurationSeconds = billableSeconds > 0 ? billableSeconds : durationSeconds;
 
   if (call.roomId.startsWith('rolling-')) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -59,8 +63,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where: { id: callId },
       data: {
         endedAt: endAt,
-        durationSeconds: Math.floor((endAt.getTime() - (call.startedAt ?? call.createdAt).getTime()) / 1000),
-        billableDurationSeconds: billableSeconds,
+        durationSeconds,
+        billableDurationSeconds,
         endedReason: 'interpreter_ended_for_all',
       },
     }),
@@ -72,9 +76,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   ]);
 
   const io = (global as { io?: { to: (r: string) => { emit: (e: string, p: unknown) => void } } }).io;
-  io?.to(`user:${call.job.request.createdByUserId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableSeconds });
+  io?.to(`user:${call.job.request.createdByUserId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableDurationSeconds });
   if (call.job.assignedInterpreterId) {
-    io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableSeconds });
+    io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableDurationSeconds });
   }
 
   return NextResponse.json({ success: true });
