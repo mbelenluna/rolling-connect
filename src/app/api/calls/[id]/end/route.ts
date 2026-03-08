@@ -48,12 +48,24 @@ export async function POST(
     const isClient = call.job.request.createdByUserId === userId;
     if (!isInterpreter && !isClient && role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+    // Client-owned model: only client can end via this endpoint. Interpreter must use /end-for-everyone.
+    const isDailyCall = !call.roomId.startsWith('rolling-');
+    if (isDailyCall && isInterpreter && !isClient) {
+      return NextResponse.json({ error: 'Use "End Call for Everyone" to end the call' }, { status: 403 });
+    }
+
     if (call.durationSeconds != null) return NextResponse.json({ success: true }); // Already ended (idempotent)
 
+    const endAt = new Date();
     await prisma.$transaction([
       prisma.call.update({
         where: { id },
-        data: { endedAt: new Date(), durationSeconds, interpreterNotes },
+        data: {
+          endedAt: endAt,
+          durationSeconds,
+          billableDurationSeconds: durationSeconds,
+          interpreterNotes,
+        },
       }),
       prisma.job.update({
         where: { id: call.jobId },

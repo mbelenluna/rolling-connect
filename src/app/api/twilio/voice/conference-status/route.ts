@@ -1,11 +1,19 @@
 /**
  * Twilio Conference statusCallback webhook.
- * When caller (participantLabel=caller) leaves, disconnect the interpreter and end the call.
+ * - participant-join interpreter: start billable interval
+ * - participant-leave interpreter: end billable interval (call stays active)
+ * - participant-leave caller: finalize call (client_left), compute billable duration
  */
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
+import { startBillableInterval, endBillableInterval, finalizeBillableDuration } from '@/lib/call-billing';
 
 export const dynamic = 'force-dynamic';
+
+function getJobIdFromConference(friendlyName: string): string | null {
+  const match = friendlyName.replace(/^rolling-/, '');
+  return match || null;
+}
 
 export async function POST(req: NextRequest) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -25,44 +33,55 @@ export async function POST(req: NextRequest) {
   }
 
   const event = params.StatusCallbackEvent;
-  const conferenceSid = params.ConferenceSid;
-  const callSid = params.CallSid;
   const participantLabel = params.ParticipantLabel || '';
+  const friendlyName = params.FriendlyName || '';
+  const jobId = getJobIdFromConference(friendlyName);
 
-  if (event !== 'participant-leave') {
-    return new NextResponse('', { status: 200 });
-  }
+  if (!jobId) return new NextResponse('', { status: 200 });
 
-  if (participantLabel !== 'caller') {
-    return new NextResponse('', { status: 200 });
-  }
-
-  // Caller hung up — disconnect interpreter and end our call record
   try {
-    const client = twilio(accountSid, authToken);
-    const participants = await client.conferences(conferenceSid).participants.list();
-    for (const p of participants) {
-      if (p.label === 'interpreter') {
-        await client.calls(p.callSid).update({ status: 'completed' });
-        break;
+    const { prisma } = await import('@/lib/prisma');
+    const call = await prisma.call.findFirst({
+      where: { jobId },
+      include: { job: { include: { request: true } } },
+    });
+
+    if (!call) return new NextResponse('', { status: 200 });
+
+    if (event === 'participant-join') {
+      if (participantLabel === 'interpreter') {
+        await startBillableInterval(call.id);
+        if (!call.startedAt) {
+          await prisma.call.update({
+            where: { id: call.id },
+            data: { startedAt: new Date() },
+          });
+        }
       }
+      return new NextResponse('', { status: 200 });
     }
 
-    const friendlyName = params.FriendlyName || '';
-    const jobIdMatch = friendlyName.replace(/^rolling-/, '');
-    if (jobIdMatch) {
-      const { prisma } = await import('@/lib/prisma');
-      const call = await prisma.call.findFirst({
-        where: { jobId: jobIdMatch },
-        include: { job: { include: { request: true } } },
-      });
-      if (call && call.durationSeconds == null) {
-        const io = (global as { io?: { to: (r: string) => { emit: (e: string, p: unknown) => void } } }).io;
-        const durationSeconds = 0;
+    if (event === 'participant-leave') {
+      if (participantLabel === 'interpreter') {
+        await endBillableInterval(call.id);
+        return new NextResponse('', { status: 200 });
+      }
+
+      if (participantLabel === 'caller') {
+        if (call.endedAt != null) return new NextResponse('', { status: 200 });
+
+        const endAt = new Date();
+        const billableSeconds = await finalizeBillableDuration(call.id, endAt);
+
         await prisma.$transaction([
           prisma.call.update({
             where: { id: call.id },
-            data: { endedAt: new Date(), durationSeconds },
+            data: {
+              endedAt: endAt,
+              durationSeconds: Math.floor((endAt.getTime() - (call.startedAt ?? call.createdAt).getTime()) / 1000),
+              billableDurationSeconds: billableSeconds,
+              endedReason: 'client_left',
+            },
           }),
           prisma.job.update({ where: { id: call.jobId }, data: { status: 'completed' } }),
           prisma.interpretationRequest.update({
@@ -70,9 +89,11 @@ export async function POST(req: NextRequest) {
             data: { status: 'completed' },
           }),
         ]);
-        io?.to(`user:${call.job.request.createdByUserId}`).emit('call_ended', { jobId: call.jobId, durationSeconds });
+
+        const io = (global as { io?: { to: (r: string) => { emit: (e: string, p: unknown) => void } } }).io;
+        io?.to(`user:${call.job.request.createdByUserId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableSeconds });
         if (call.job.assignedInterpreterId) {
-          io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds });
+          io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableSeconds });
         }
       }
     }

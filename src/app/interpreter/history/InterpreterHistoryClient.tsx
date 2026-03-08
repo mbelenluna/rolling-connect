@@ -15,7 +15,7 @@ type Job = {
     specialty: string;
     createdAt: string;
   };
-  call: { durationSeconds?: number } | null;
+  call: { durationSeconds?: number; billableDurationSeconds?: number } | null;
 };
 
 export default function InterpreterHistoryClient() {
@@ -35,7 +35,7 @@ export default function InterpreterHistoryClient() {
   if (loading) return <div className="text-slate-600">Loading…</div>;
 
   const totalPay = jobs.reduce((sum, j) => {
-    const d = j.call?.durationSeconds ?? 0;
+    const d = j.call?.billableDurationSeconds ?? j.call?.durationSeconds ?? 0;
     return sum + (d ? interpreterPayCents(d, j.request.targetLanguage) : 0);
   }, 0);
 
@@ -51,7 +51,7 @@ export default function InterpreterHistoryClient() {
           <p className="text-slate-500">No completed calls yet.</p>
         ) : (
           jobs.map((j) => {
-            const duration = j.call?.durationSeconds ?? 0;
+            const duration = j.call?.billableDurationSeconds ?? j.call?.durationSeconds ?? 0;
             const mins = duration ? Math.ceil(duration / 60) : 0;
             const pay = duration ? interpreterPayCents(duration, j.request.targetLanguage) : 0;
             return (

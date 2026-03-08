@@ -821,7 +821,7 @@ export default function AICallRoom({
               <span className="font-mono text-lg font-semibold text-slate-900 tabular-nums">{formatDuration(elapsedSeconds)}</span>
             </div>
             <button onClick={handleEndOrCancel} className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium">
-              {t('endCall')}
+              {!endCallEndpoint && callId && inviteToken ? t('leave') : t('endCall')}
             </button>
           </div>
         </div>

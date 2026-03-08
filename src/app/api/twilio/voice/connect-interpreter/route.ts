@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     return new NextResponse(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
   }
 
-  // Dial interpreter into conference. endConferenceOnExit=true so when interpreter leaves, caller is disconnected.
-  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference beep="onEnter" endConferenceOnExit="true" participantLabel="interpreter">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
+  // endConferenceOnExit=false: interpreter can leave without ending the call; client stays connected
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference beep="onEnter" endConferenceOnExit="false" participantLabel="interpreter">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
   return new NextResponse(xml, {
     headers: { 'Content-Type': 'application/xml; charset=utf-8' },
   });

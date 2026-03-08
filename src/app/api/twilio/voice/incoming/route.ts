@@ -127,8 +127,9 @@ export async function POST(req: NextRequest) {
     const base = baseUrl.replace(/\/$/, '');
     const waitUrl = `${base}/api/twilio/voice/hold-message`;
     const statusCallback = `${base}/api/twilio/voice/conference-status`;
+    // endConferenceOnExit=true on caller: when client hangs up, conference ends for everyone
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your request has been received. Please hold while we connect you to an interpreter.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="false" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="GET" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="participant-leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your request has been received. Please hold while we connect you to an interpreter.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="GET" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="participant-join,participant-leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
     );
   }
 

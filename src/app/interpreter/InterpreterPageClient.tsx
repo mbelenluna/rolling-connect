@@ -25,6 +25,15 @@ type AssignedJob = {
   roomId: string;
 };
 
+type ActiveCall = {
+  jobId: string;
+  callId: string;
+  roomId: string;
+  languagePair: string;
+  specialty: string;
+  serviceType: string;
+};
+
 export default function InterpreterPageClient() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -32,6 +41,7 @@ export default function InterpreterPageClient() {
   const [availability, setAvailability] = useState<'online' | 'offline' | 'busy'>('offline');
   const [offers, setOffers] = useState<Offer[]>([]);
   const [assignedJob, setAssignedJob] = useState<AssignedJob | null>(null);
+  const [activeCalls, setActiveCalls] = useState<ActiveCall[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
   const knownOfferIds = useRef<Set<string>>(new Set());
   const hasInitialLoad = useRef(false);
@@ -53,6 +63,18 @@ export default function InterpreterPageClient() {
       })
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const poll = () =>
+      fetch('/api/interpreter/active-calls')
+        .then((r) => r.json())
+        .then((list: ActiveCall[]) => setActiveCalls(Array.isArray(list) ? list : []))
+        .catch(() => setActiveCalls([]));
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [status]);
 
   // Poll for offers (runs regardless of availability - API only returns offers you're matched to)
   useEffect(() => {
@@ -220,15 +242,36 @@ export default function InterpreterPageClient() {
         </div>
       </div>
 
-      {assignedJob && (
+      {(assignedJob || activeCalls.length > 0) && (
         <div className="mb-8 p-6 bg-green-50 border border-green-200 rounded-xl">
-          <h2 className="font-semibold text-green-900 mb-2">You're assigned!</h2>
-          <Link
-            href={`/interpreter/call/${assignedJob.jobId}`}
-            className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
-          >
-            Join Call
-          </Link>
+          <h2 className="font-semibold text-green-900 mb-3">
+            {assignedJob ? "You're assigned!" : 'Active call — Rejoin available'}
+          </h2>
+          <div className="space-y-2">
+            {assignedJob && (
+              <Link
+                href={`/interpreter/call/${assignedJob.jobId}`}
+                className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+              >
+                Join Call
+              </Link>
+            )}
+            {activeCalls
+              .filter((ac) => !assignedJob || ac.jobId !== assignedJob.jobId)
+              .map((ac) => (
+                <div key={ac.jobId} className="flex items-center gap-3">
+                  <span className="text-sm text-green-800">
+                    {ac.languagePair} — {ac.specialty} (client still connected)
+                  </span>
+                  <Link
+                    href={`/interpreter/call/${ac.jobId}`}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 text-sm"
+                  >
+                    Rejoin Call
+                  </Link>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 

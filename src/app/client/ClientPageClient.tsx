@@ -114,7 +114,7 @@ export default function ClientPageClient() {
   useEffect(() => {
     fetch('/api/organizations')
       .then((r) => r.json())
-      .then(setOrgs)
+      .then((data) => setOrgs(Array.isArray(data) ? data : []))
       .catch(() => setOrgs([]));
   }, []);
 

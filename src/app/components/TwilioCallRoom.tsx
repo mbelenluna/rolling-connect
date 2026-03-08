@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { Device, Call } from '@twilio/voice-sdk';
 
 function formatDuration(seconds: number): string {
@@ -19,7 +18,8 @@ type TwilioCallRoomProps = {
   backHref: string;
   backLabel: string;
   summaryHref: string;
-  endCallEndpoint: string;
+  leaveEndpoint: string;
+  endForEveryoneEndpoint: string;
 };
 
 export default function TwilioCallRoom({
@@ -29,32 +29,18 @@ export default function TwilioCallRoom({
   backHref,
   backLabel,
   summaryHref,
-  endCallEndpoint,
+  leaveEndpoint,
+  endForEveryoneEndpoint,
 }: TwilioCallRoomProps) {
   const router = useRouter();
-  const { data: session } = useSession();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [error, setError] = useState<string | null>(null);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const timerStartRef = useRef<number | null>(null);
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
-  const endedByUserRef = useRef(false);
-
-  const endCallIfNotByUser = useCallback(() => {
-    if (endedByUserRef.current) return;
-    const duration = timerStartRef.current
-      ? Math.max(0, Math.floor((Date.now() - timerStartRef.current) / 1000))
-      : 0;
-    fetch(endCallEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ durationSeconds: duration }),
-      keepalive: true,
-      credentials: 'include',
-    }).catch(() => {});
-  }, [endCallEndpoint]);
 
   useEffect(() => {
     if (!twilioToken || !conferenceName) return;
@@ -79,11 +65,10 @@ export default function TwilioCallRoom({
           });
           call.on('disconnect', () => {
             setStatus('disconnected');
-            endCallIfNotByUser();
             device.destroy();
             deviceRef.current = null;
             callRef.current = null;
-            router.replace(summaryHref);
+            router.replace(backHref);
           });
           call.on('error', (err: { message?: string }) => {
             console.error('[TwilioCallRoom] call error:', err);
@@ -114,7 +99,7 @@ export default function TwilioCallRoom({
       deviceRef.current = null;
       callRef.current = null;
     };
-  }, [twilioToken, conferenceName, summaryHref, router, endCallIfNotByUser]);
+  }, [twilioToken, conferenceName, backHref, router]);
 
   useEffect(() => {
     if (!timerStarted) return;
@@ -126,28 +111,16 @@ export default function TwilioCallRoom({
     return () => clearInterval(interval);
   }, [timerStarted]);
 
-  useEffect(() => {
-    const handler = () => endCallIfNotByUser();
-    window.addEventListener('beforeunload', handler);
-    window.addEventListener('pagehide', handler);
-    return () => {
-      window.removeEventListener('beforeunload', handler);
-      window.removeEventListener('pagehide', handler);
-      endCallIfNotByUser();
-    };
-  }, [endCallIfNotByUser]);
+  const handleLeaveCall = () => {
+    if (callRef.current) {
+      callRef.current.disconnect();
+    }
+    router.replace(backHref);
+  };
 
-  const handleEndCall = async () => {
-    endedByUserRef.current = true;
-    const duration = timerStartRef.current
-      ? Math.max(0, Math.floor((Date.now() - timerStartRef.current) / 1000))
-      : elapsedSeconds;
-    await fetch(endCallEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ durationSeconds: duration }),
-      credentials: 'include',
-    }).catch(() => {});
+  const handleEndForEveryone = async () => {
+    setShowEndConfirm(false);
+    await fetch(endForEveryoneEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
     if (callRef.current) {
       callRef.current.disconnect();
     }
@@ -190,23 +163,61 @@ export default function TwilioCallRoom({
                 </div>
               )}
             </div>
-            <button
-              onClick={handleEndCall}
-              className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
-            >
-              End Call
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleLeaveCall}
+                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+              >
+                Leave Call
+              </button>
+              <button
+                onClick={() => setShowEndConfirm(true)}
+                className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
+              >
+                End Call for Everyone
+              </button>
+            </div>
           </div>
         </div>
-        <div className="p-8 min-h-[200px] flex items-center justify-center bg-slate-50">
+        <div className="p-8 min-h-[200px] flex flex-col items-center justify-center bg-slate-50 gap-4">
           {status === 'connecting' && (
             <p className="text-slate-600">Connecting you to the caller on the phone...</p>
           )}
           {status === 'connected' && (
-            <p className="text-slate-600">You are connected. The caller is on the phone — speak normally.</p>
+            <>
+              <p className="text-slate-600">You are connected. The caller is on the phone — speak normally.</p>
+              <p className="text-sm text-slate-500">
+                Leave Call = you leave only (client stays, you can rejoin). End Call for Everyone = disconnect client and end session.
+              </p>
+            </>
           )}
         </div>
       </div>
+
+      {showEndConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">End Call for Everyone?</h2>
+            <p className="text-slate-600 mb-4">
+              This will disconnect the client and end the session for everyone. The call cannot be resumed.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEndForEveryone}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                End for Everyone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -64,9 +64,12 @@ export async function GET(req: Request) {
   };
 
   const rows: CallRow[] = jobs
-    .filter((j) => j.call?.durationSeconds != null && j.call.durationSeconds > 0)
+    .filter((j) => {
+      const d = j.call?.billableDurationSeconds ?? j.call?.durationSeconds;
+      return d != null && d > 0;
+    })
     .map((j) => {
-      const duration = j.call!.durationSeconds!;
+      const duration = j.call!.billableDurationSeconds ?? j.call!.durationSeconds ?? 0;
       const targetLang = j.request.targetLanguage;
       const dateIso = j.call?.endedAt ?? j.request.createdAt;
       const monthKey = new Date(dateIso).toISOString().slice(0, 7);

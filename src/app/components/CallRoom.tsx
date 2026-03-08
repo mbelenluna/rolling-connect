@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import Daily from '@daily-co/daily-js';
 import { io } from 'socket.io-client';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -21,7 +23,12 @@ type CallRoomProps = {
   summaryHref: string;
   dailyError?: string | null;
   cancelEndpoint?: string | null;
+  /** Client only: ends the call for everyone. */
   endCallEndpoint?: string | null;
+  /** Interpreter only: leave without ending; call stays active. */
+  leaveEndpoint?: string | null;
+  /** Interpreter only: end call for everyone (with confirmation). */
+  endForEveryoneEndpoint?: string | null;
   inviteLinkEndpoint?: string | null;
   /** For guests: use guest-leave instead of end. Requires inviteToken in body. */
   guestLeaveEndpoint?: string | null;
@@ -29,9 +36,11 @@ type CallRoomProps = {
   role?: 'client' | 'interpreter';
 };
 
-export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, inviteLinkEndpoint, guestLeaveEndpoint, inviteToken, role = 'interpreter' }: CallRoomProps) {
+export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, leaveEndpoint, endForEveryoneEndpoint, inviteLinkEndpoint, guestLeaveEndpoint, inviteToken, role = 'interpreter' }: CallRoomProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { locale } = useLanguage();
+  const t = (k: TranslationKeys) => getTranslation(locale, k);
   const containerRef = useRef<HTMLDivElement>(null);
   const callRef = useRef<ReturnType<typeof Daily.createFrame> | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -41,37 +50,47 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
   const timerStartRef = useRef<number | null>(null);
   const endedByUserRef = useRef(false);
   const endCallEndpointRef = useRef(endCallEndpoint);
+  const leaveEndpointRef = useRef(leaveEndpoint);
   const guestLeaveEndpointRef = useRef(guestLeaveEndpoint);
   const inviteTokenRef = useRef(inviteToken);
   const dailyErrorRef = useRef(dailyError);
   endCallEndpointRef.current = endCallEndpoint;
+  leaveEndpointRef.current = leaveEndpoint;
   guestLeaveEndpointRef.current = guestLeaveEndpoint;
   inviteTokenRef.current = inviteToken;
   dailyErrorRef.current = dailyError;
 
-  // When user leaves without clicking End Call: end the call so it's completed (not canceled)
+  const isInterpreterWithLeave = !!leaveEndpoint && !!endForEveryoneEndpoint;
+
+  // When user leaves without clicking: client/guest -> end/guest-leave; interpreter -> leave only
   const endCallIfNotByUser = useCallback(() => {
     if (endedByUserRef.current) return;
-    const url = guestLeaveEndpointRef.current || endCallEndpointRef.current;
-    if (!url || dailyErrorRef.current) return;
+    if (dailyErrorRef.current) return;
+    const leaveUrl = leaveEndpointRef.current;
+    const guestUrl = guestLeaveEndpointRef.current;
+    const endUrl = endCallEndpointRef.current;
+    const url = guestUrl || (isInterpreterWithLeave ? leaveUrl : endUrl);
+    if (!url) return;
     const duration = timerStartRef.current
       ? Math.max(0, Math.floor((Date.now() - timerStartRef.current) / 1000))
       : 0;
-    const body = guestLeaveEndpointRef.current && inviteTokenRef.current
+    const body = guestUrl && inviteTokenRef.current
       ? JSON.stringify({ inviteToken: inviteTokenRef.current, durationSeconds: duration })
       : JSON.stringify({ durationSeconds: duration });
-    // Prefer fetch with keepalive + credentials so session cookie is sent reliably
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      keepalive: true,
-      credentials: 'include',
-    }).catch(() => {});
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    if (leaveUrl && !guestUrl && isInterpreterWithLeave) {
+      fetch(leaveUrl, { method: 'POST', keepalive: true, credentials: 'include' }).catch(() => {});
+      if (navigator.sendBeacon) navigator.sendBeacon(leaveUrl, new Blob(['{}'], { type: 'application/json' }));
+    } else {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+        credentials: 'include',
+      }).catch(() => {});
+      if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
     }
-  }, []);
+  }, [isInterpreterWithLeave]);
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     if (navigator.clipboard?.writeText) {
@@ -184,7 +203,7 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
       endCallIfNotByUser();
       if (containerRef.current) containerRef.current.style.display = 'none';
       callRef.current = null;
-      router.replace(summaryHref);
+      router.replace(isInterpreterWithLeave ? backHref : summaryHref);
     });
 
     callFrame.join({ url: tokenUrl });
@@ -194,22 +213,32 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
       callFrame.destroy();
       callRef.current = null;
     };
-  }, [tokenUrl, dailyError, summaryHref, router, endCallIfNotByUser]);
+  }, [tokenUrl, dailyError, summaryHref, backHref, isInterpreterWithLeave, router, endCallIfNotByUser]);
 
-  // When user closes tab or navigates away without clicking End Call: end the call
+  // When user closes tab or navigates away: client/guest -> end; interpreter -> leave
+  const unmountEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const endUrl = guestLeaveEndpoint || endCallEndpoint;
-    if (!tokenUrl || dailyError || !endUrl) return;
+    const hasLeaveOrEnd = guestLeaveEndpoint || endCallEndpoint || (leaveEndpoint && endForEveryoneEndpoint);
+    if (!tokenUrl || dailyError || !hasLeaveOrEnd) return;
+
+    if (unmountEndTimeoutRef.current) {
+      clearTimeout(unmountEndTimeoutRef.current);
+      unmountEndTimeoutRef.current = null;
+    }
+
     const handler = () => endCallIfNotByUser();
     window.addEventListener('beforeunload', handler);
     window.addEventListener('pagehide', handler);
     return () => {
       window.removeEventListener('beforeunload', handler);
       window.removeEventListener('pagehide', handler);
-      // End call when component unmounts (e.g. client-side navigation, link click)
-      endCallIfNotByUser();
+      // Defer end-on-unmount so React Strict Mode's double-mount doesn't end the call immediately
+      unmountEndTimeoutRef.current = setTimeout(() => {
+        unmountEndTimeoutRef.current = null;
+        endCallIfNotByUser();
+      }, 1500);
     };
-  }, [tokenUrl, dailyError, endCallEndpoint, guestLeaveEndpoint, endCallIfNotByUser]);
+  }, [tokenUrl, dailyError, endCallEndpoint, leaveEndpoint, endForEveryoneEndpoint, guestLeaveEndpoint, endCallIfNotByUser]);
 
   // Timer tick when both have joined
   useEffect(() => {
@@ -227,6 +256,38 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
     }
   }, [dailyError, cancelEndpoint]);
 
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  const handleLeaveCall = async () => {
+    if (leaveEndpoint && tokenUrl && !dailyError) {
+      endedByUserRef.current = true;
+      await fetch(leaveEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
+    if (callRef.current) {
+      try {
+        callRef.current.leave();
+        callRef.current.destroy();
+      } catch {}
+      callRef.current = null;
+    }
+    router.replace(backHref);
+  };
+
+  const handleEndForEveryone = async () => {
+    setShowEndConfirm(false);
+    if (endForEveryoneEndpoint && tokenUrl && !dailyError) {
+      endedByUserRef.current = true;
+      await fetch(endForEveryoneEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
+    if (callRef.current) {
+      try {
+        callRef.current.destroy();
+      } catch {}
+      callRef.current = null;
+    }
+    router.replace(summaryHref);
+  };
+
   const handleEndOrCancel = async () => {
     const endUrl = guestLeaveEndpoint || endCallEndpoint;
     const isEndingCall = endUrl && tokenUrl && !dailyError;
@@ -243,7 +304,6 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
     } else if (cancelEndpoint) {
       await fetch(cancelEndpoint, { method: 'POST' });
     }
-    // Destroy frame immediately to avoid Daily "1 error" banner
     if (callRef.current) {
       try {
         callRef.current.destroy();
@@ -330,14 +390,55 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
                 {formatDuration(elapsedSeconds)}
               </span>
             </div>
-            <button
-              onClick={handleEndOrCancel}
-              className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
-            >
-              End Call
-            </button>
+            {isInterpreterWithLeave ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLeaveCall}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+                >
+                  {t('leaveCall')}
+                </button>
+                <button
+                  onClick={() => setShowEndConfirm(true)}
+                  className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
+                >
+                  {t('endCallForEveryone')}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleEndOrCancel}
+                className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
+              >
+                {guestLeaveEndpoint ? t('leave') : t('endCall')}
+              </button>
+            )}
           </div>
         </div>
+        {showEndConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+              <h2 className="text-lg font-semibold text-slate-900 mb-2">{t('endCallForEveryone')}?</h2>
+              <p className="text-slate-600 mb-4">
+                This will disconnect the client and end the session for everyone. The call cannot be resumed.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowEndConfirm(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEndForEveryone}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                >
+                  {t('endCallForEveryone')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={containerRef} className="min-h-[500px]" />
       </div>
     </div>

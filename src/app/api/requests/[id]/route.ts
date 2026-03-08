@@ -26,7 +26,7 @@ export async function GET(
       jobs: {
         include: {
           assignedInterpreter: { select: { id: true, name: true } },
-          call: { select: { id: true, durationSeconds: true, clientRating: true, clientComments: true } },
+          call: { select: { id: true, durationSeconds: true, billableDurationSeconds: true, clientRating: true, clientComments: true } },
         },
       },
       organization: { select: { name: true } },

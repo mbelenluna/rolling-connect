@@ -33,7 +33,7 @@ export async function GET(
 
   return NextResponse.json({
     id: call.id,
-    durationSeconds: call.durationSeconds,
+    durationSeconds: call.billableDurationSeconds ?? call.durationSeconds,
     interpreterNotes: call.interpreterNotes,
     clientRating: call.clientRating,
     clientComments: call.clientComments,

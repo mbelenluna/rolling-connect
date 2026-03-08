@@ -45,7 +45,7 @@ type Request = {
     id: string;
     status: string;
     assignedInterpreter?: { name: string };
-    call?: { durationSeconds?: number; clientRating?: number | null; clientComments?: string | null };
+    call?: { durationSeconds?: number; billableDurationSeconds?: number; clientRating?: number | null; clientComments?: string | null };
   }[];
 };
 
@@ -98,10 +98,10 @@ export default function RequestDetailClient() {
               <dd className="font-medium">{job.assignedInterpreter.name}</dd>
             </div>
           )}
-          {job?.call?.durationSeconds != null && (
+          {(job?.call?.billableDurationSeconds ?? job?.call?.durationSeconds) != null && (
             <div>
               <dt className="text-sm text-slate-500">Call duration</dt>
-              <dd className="font-medium">{Math.ceil(job.call.durationSeconds / 60)} min</dd>
+              <dd className="font-medium">{Math.ceil((job!.call!.billableDurationSeconds ?? job!.call!.durationSeconds!) / 60)} min</dd>
             </div>
           )}
           {job?.call?.clientRating != null && (

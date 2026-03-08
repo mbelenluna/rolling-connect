@@ -51,6 +51,11 @@ enum JobStatus {
   canceled
 }
 
+enum CallEndedReason {
+  client_left
+  interpreter_ended_for_all
+}
+
 enum OrgMemberRole {
   owner
   member
@@ -213,18 +218,32 @@ model Job {
 }
 
 model Call {
-  id               String    @id @default(uuid())
-  jobId            String    @unique @map("job_id")
-  roomId           String    @map("room_id")
-  startedAt        DateTime? @map("started_at")
-  endedAt         DateTime? @map("ended_at")
-  durationSeconds  Int?      @map("duration_seconds")
-  interpreterNotes String?   @map("interpreter_notes")
-  clientRating     Int?      @map("client_rating")
-  clientComments   String?   @map("client_comments")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  id                    String           @id @default(uuid())
+  jobId                 String           @unique @map("job_id")
+  roomId                String           @map("room_id")
+  startedAt             DateTime?        @map("started_at")
+  endedAt               DateTime?       @map("ended_at")
+  durationSeconds       Int?             @map("duration_seconds")
+  billableDurationSeconds Int?           @map("billable_duration_seconds")
+  endedReason           CallEndedReason? @map("ended_reason")
+  interpreterNotes      String?          @map("interpreter_notes")
+  clientRating          Int?             @map("client_rating")
+  clientComments        String?          @map("client_comments")
+  createdAt             DateTime         @default(now()) @map("created_at")
 
-  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job                   Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  billableIntervals     CallBillableInterval[]
+}
+
+model CallBillableInterval {
+  id        String    @id @default(uuid())
+  callId    String    @map("call_id")
+  startedAt DateTime  @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("call_billable_intervals")
 }
 
 model Language {

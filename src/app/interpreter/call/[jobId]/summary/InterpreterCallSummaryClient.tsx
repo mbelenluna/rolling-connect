@@ -31,7 +31,7 @@ export default function InterpreterCallSummaryClient() {
         if (!d.callId) throw new Error('No call');
         setData({
           callId: d.callId,
-          durationSeconds: d.durationSeconds ?? 0,
+          durationSeconds: d.billableDurationSeconds ?? d.durationSeconds ?? 0,
           interpreterNotes: d.interpreterNotes,
         });
         if (d.interpreterNotes) {

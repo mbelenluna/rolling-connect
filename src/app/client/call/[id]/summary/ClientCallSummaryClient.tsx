@@ -38,7 +38,7 @@ export default function ClientCallSummaryClient() {
         if (!call) throw new Error('Call not found');
         setData({
           callId: call.id,
-          durationSeconds: call.durationSeconds ?? 0,
+          durationSeconds: call.billableDurationSeconds ?? call.durationSeconds ?? 0,
           interpreterName: job?.assignedInterpreter?.name ?? '—',
           interpretationType: req.interpretationType ?? 'human',
           clientRating: call.clientRating,

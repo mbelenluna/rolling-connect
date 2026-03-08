@@ -46,7 +46,10 @@ export default function RequestPageClient() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/organizations').then((r) => r.json()).then(setOrgs).catch(console.error);
+    fetch('/api/organizations')
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) ? setOrgs(data) : setOrgs([]))
+      .catch(() => setOrgs([]));
     fetch('/api/languages').then((r) => r.json()).then(setLanguages).catch(console.error);
     fetch('/api/specialties').then((r) => r.json()).then(setSpecialties).catch(console.error);
   }, []);

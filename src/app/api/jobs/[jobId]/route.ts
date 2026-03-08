@@ -28,7 +28,7 @@ export async function GET(
   return NextResponse.json({
     jobId: job.id,
     callId: job.call.id,
-    durationSeconds: job.call.durationSeconds,
+    durationSeconds: job.call.billableDurationSeconds ?? job.call.durationSeconds,
     interpreterNotes: job.call.interpreterNotes,
   });
 }

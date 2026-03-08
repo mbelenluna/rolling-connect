@@ -21,6 +21,7 @@ type Request = {
     call?: {
       id?: string;
       durationSeconds?: number;
+      billableDurationSeconds?: number;
       startedAt?: string | null;
       endedAt?: string | null;
       clientRating?: number | null;
@@ -72,7 +73,7 @@ export default function ClientHistoryClient() {
 
   const totalCents = requests.reduce((sum, r) => {
     const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
-    const duration = job?.call?.durationSeconds ?? 0;
+    const duration = job?.call?.billableDurationSeconds ?? job?.call?.durationSeconds ?? 0;
     return sum + (duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0);
   }, 0);
 
@@ -149,7 +150,7 @@ export default function ClientHistoryClient() {
       for (const r of requests) {
         const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
         const call = job?.call;
-        const duration = call?.durationSeconds ?? 0;
+        const duration = call?.billableDurationSeconds ?? call?.durationSeconds ?? 0;
         const mins = duration ? Math.ceil(duration / 60) : 0;
         const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
         const dateStr = call?.endedAt
@@ -261,7 +262,7 @@ export default function ClientHistoryClient() {
         ) : (
           requests.map((r) => {
             const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
-            const duration = job?.call?.durationSeconds ?? 0;
+            const duration = job?.call?.billableDurationSeconds ?? job?.call?.durationSeconds ?? 0;
             const mins = duration ? Math.ceil(duration / 60) : 0;
             const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
             const rating = job?.call?.clientRating;

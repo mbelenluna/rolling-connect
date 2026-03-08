@@ -53,7 +53,8 @@ export default function InterpreterCallClient() {
         backHref="/interpreter"
         backLabel="Back to Dashboard"
         summaryHref={`/interpreter/call/${jobId}/summary`}
-        endCallEndpoint={`/api/calls/${data.callId}/end`}
+        leaveEndpoint={`/api/calls/${data.callId}/leave`}
+        endForEveryoneEndpoint={`/api/calls/${data.callId}/end-for-everyone`}
       />
     );
   }
@@ -67,7 +68,8 @@ export default function InterpreterCallClient() {
       summaryHref={`/interpreter/call/${jobId}/summary`}
       dailyError={data.dailyError}
       cancelEndpoint={`/api/jobs/${jobId}/cancel`}
-      endCallEndpoint={data.callId ? `/api/calls/${data.callId}/end` : null}
+      leaveEndpoint={data.callId ? `/api/calls/${data.callId}/leave` : null}
+      endForEveryoneEndpoint={data.callId ? `/api/calls/${data.callId}/end-for-everyone` : null}
       inviteLinkEndpoint={data.callId ? `/api/calls/${data.callId}/invite-link` : null}
       role="interpreter"
     />
