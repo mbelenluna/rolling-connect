@@ -52,6 +52,15 @@ function buildLanguageMenu(): string {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleIncoming(req);
+  } catch (err) {
+    console.error('[twilio/voice] Unhandled error:', err);
+    return sayAndHangup('We are sorry, an error occurred. Please try again later. Goodbye.');
+  }
+}
+
+async function handleIncoming(req: NextRequest) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!authToken) {
     console.error('[twilio/voice] TWILIO_AUTH_TOKEN not set');
@@ -61,15 +70,17 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const params = Object.fromEntries(new URLSearchParams(body));
   const signature = req.headers.get('x-twilio-signature') ?? '';
-  // Use actual request URL for signature validation (avoids www vs non-www mismatch)
-  const fullUrl =
-    req.url && req.url.startsWith('http')
-      ? req.url
-      : getWebhookBaseUrl() + (req.nextUrl.search ? req.nextUrl.search : '');
+  const search = req.nextUrl.search ? req.nextUrl.search : '';
+  const canonicalUrl = getWebhookBaseUrl() + search;
 
-  if (signature && !twilio.validateRequest(authToken, signature, fullUrl, params)) {
-    console.warn('[twilio/voice] Invalid signature');
-    return new NextResponse('Forbidden', { status: 403 });
+  if (signature) {
+    const valid =
+      twilio.validateRequest(authToken, signature, canonicalUrl, params) ||
+      (req.url?.startsWith('http') && twilio.validateRequest(authToken, signature, req.url, params));
+    if (!valid) {
+      console.warn('[twilio/voice] Invalid signature', { canonicalUrl, reqUrl: req.url });
+      return new NextResponse('Forbidden', { status: 403 });
+    }
   }
 
   const step = req.nextUrl.searchParams.get('step');
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   if (!step) {
     // Initial call: greet and collect client ID
-    const actionUrl = `${getWebhookBaseUrl()}?step=validate_client`;
+    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=validate_client`);
     return twiml(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Welcome to Rolling Connect. Please enter your 6 digit client ID, followed by the pound key. You have 20 seconds.</Say><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true"/><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`
     );
@@ -88,7 +99,7 @@ export async function POST(req: NextRequest) {
     const clientId = digits.replace(/\D/g, '');
     if (!clientId) {
       // Timeout or no digits — give caller another chance
-      const baseUrl = getWebhookBaseUrl();
+      const baseUrl = escapeXml(getWebhookBaseUrl());
       return twiml(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your client ID. Please try again.</Say><Redirect method="POST">${baseUrl}</Redirect></Response>`
       );
@@ -105,7 +116,7 @@ export async function POST(req: NextRequest) {
       return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
     }
 
-    const actionUrl = `${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`;
+    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`);
     const langMenu = buildLanguageMenu();
     return twiml(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say><Gather numDigits="1" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" actionOnEmptyResult="true"/><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
