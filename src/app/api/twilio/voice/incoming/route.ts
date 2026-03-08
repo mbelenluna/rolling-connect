@@ -61,7 +61,11 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const params = Object.fromEntries(new URLSearchParams(body));
   const signature = req.headers.get('x-twilio-signature') ?? '';
-  const fullUrl = getWebhookBaseUrl() + (req.nextUrl.search ? req.nextUrl.search : '');
+  // Use actual request URL for signature validation (avoids www vs non-www mismatch)
+  const fullUrl =
+    req.url && req.url.startsWith('http')
+      ? req.url
+      : getWebhookBaseUrl() + (req.nextUrl.search ? req.nextUrl.search : '');
 
   if (signature && !twilio.validateRequest(authToken, signature, fullUrl, params)) {
     console.warn('[twilio/voice] Invalid signature');
