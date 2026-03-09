@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getTranslation, type TranslationKeys } from '@/lib/translations';
+import { getTranslation, getTranslatedLanguageName, type TranslationKeys } from '@/lib/translations';
 import { CopyButton } from '@/components/CopyButton';
+import { IVR_ORDER } from '@/lib/ivr-languages';
 
 function TutorialsSection({ t }: { t: (k: TranslationKeys) => string }) {
   return (
@@ -208,6 +209,28 @@ export default function ClientPageClient() {
               </div>
             )}
             <p className="text-slate-600 text-sm">{t('phoneAccessClientIdHint')}</p>
+            <div className="mt-6 pt-4 border-t border-slate-200">
+              <h3 className="font-semibold text-slate-900 mb-3">{t('phoneAccessLangTableTitle')}</h3>
+              <p className="text-slate-600 text-sm mb-3">{t('phoneAccessLangTableHint')}</p>
+              <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-lg border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-900">{t('phoneAccessLangTableLang')}</th>
+                      <th className="px-3 py-2 text-right font-semibold text-slate-900 w-16">{t('phoneAccessLangTablePress')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {IVR_ORDER.map((lang) => (
+                      <tr key={lang.code} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2 text-slate-700">{getTranslatedLanguageName(locale, lang.code, lang.name)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-semibold text-brand-600">{lang.digit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}

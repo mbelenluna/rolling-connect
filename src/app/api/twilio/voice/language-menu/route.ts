@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
+import { buildIvrLanguagePrompt } from '@/lib/ivr-languages';
 import { logVoiceRequest, logVoiceResponse } from '@/lib/twilio-voice-log';
 
 export const dynamic = 'force-dynamic';
@@ -22,9 +23,6 @@ function escapeXml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 }
-
-const LANGUAGE_MENU_PROMPT =
-  'For Spanish, press 1. For Chinese, press 2. For Korean, press 3. For Russian, press 4. For Vietnamese, press 5. For Portuguese, press 6. For Haitian Creole, press 7. For Arabic, press 8. For other languages, press 9.';
 
 /** Handle GET (e.g. if redirect uses GET) or POST. */
 async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
@@ -74,7 +72,8 @@ async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
 
   // actionOnEmptyResult so timeout also POSTs to select-language (handles empty Digits cleanly)
   const selectUrl = escapeXml(`${base}/api/twilio/voice/select-language?clientId=${encodeURIComponent(clientId)}`);
-  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${selectUrl}" actionOnEmptyResult="true"><Say voice="alice" language="en-US">${escapeXml(LANGUAGE_MENU_PROMPT)}</Say></Gather></Response>`;
+  const languagePrompt = buildIvrLanguagePrompt();
+  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="2" timeout="15" input="dtmf" method="POST" action="${selectUrl}" actionOnEmptyResult="true"><Say voice="alice" language="en-US">${escapeXml(languagePrompt)}</Say></Gather></Response>`;
 
   console.log('[twilio/language-menu] EXACT_TWIML_RETURNED', { fullXml: langXml });
   logVoiceResponse('language-menu', { branch: 'menu_returned', twimlPreview: langXml });

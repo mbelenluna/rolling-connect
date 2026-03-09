@@ -104,6 +104,10 @@ export const translations = {
     phoneAccessCopyPhone: 'Copy phone number',
     phoneAccessCopyId: 'Copy Client ID',
     phoneAccessCopied: 'Copied',
+    phoneAccessLangTableTitle: 'Language quick reference',
+    phoneAccessLangTableHint: 'Press this number when prompted during your call to connect to an interpreter for that language.',
+    phoneAccessLangTableLang: 'Language',
+    phoneAccessLangTablePress: 'Press',
     requestPhoneAlternative: 'Prefer phone access? Call +1 689 400 7175 and enter your Client ID.',
     requestPhoneOrWeb: 'Use the web portal for online requests or call for direct phone interpretation.',
 
@@ -446,6 +450,10 @@ export const translations = {
     phoneAccessCopyPhone: 'Copiar número de teléfono',
     phoneAccessCopyId: 'Copiar ID de cliente',
     phoneAccessCopied: 'Copiado',
+    phoneAccessLangTableTitle: 'Referencia rápida de idiomas',
+    phoneAccessLangTableHint: 'Presione este número cuando se le indique durante la llamada para conectarse con un intérprete de ese idioma.',
+    phoneAccessLangTableLang: 'Idioma',
+    phoneAccessLangTablePress: 'Presione',
     requestPhoneAlternative: '¿Prefiere el acceso por teléfono? Llame al +1 689 400 7175 e ingrese su ID de cliente.',
     requestPhoneOrWeb: 'Use el portal web para solicitudes en línea o llame para interpretación directa por teléfono.',
 
@@ -782,6 +790,10 @@ export const translations = {
     phoneAccessCopyPhone: '复制电话号码',
     phoneAccessCopyId: '复制客户ID',
     phoneAccessCopied: '已复制',
+    phoneAccessLangTableTitle: '语言快速参考',
+    phoneAccessLangTableHint: '通话时按提示输入此数字，即可连接该语言的译员。',
+    phoneAccessLangTableLang: '语言',
+    phoneAccessLangTablePress: '按',
     requestPhoneAlternative: '更喜欢电话访问？拨打 +1 689 400 7175 并输入您的客户ID。',
     requestPhoneOrWeb: '使用网络门户进行在线申请，或拨打电话进行直接电话口译。',
 
@@ -1042,22 +1054,25 @@ export function getTranslation(locale: Locale, key: TranslationKeys): string {
   return translations[locale][key] ?? translations.en[key] ?? String(key);
 }
 
-/** Translated language names for dropdowns (by locale and code) */
+/** Translated language names for dropdowns (by locale and code). Chinese: only Mandarin and Cantonese. */
 export const languageNamesByLocale: Record<Locale, Record<string, string>> = {
   en: {
-    en: 'English', es: 'Spanish', zh: 'Chinese', ar: 'Arabic', vi: 'Vietnamese', ko: 'Korean',
+    en: 'English', es: 'Spanish', ar: 'Arabic', vi: 'Vietnamese', ko: 'Korean',
     ru: 'Russian', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese',
     hi: 'Hindi', th: 'Thai', pl: 'Polish', tr: 'Turkish',
+    'zh-cmn': 'Chinese Mandarin', yue: 'Chinese Cantonese',
   },
   es: {
-    en: 'Inglés', es: 'Español', zh: 'Chino', ar: 'Árabe', vi: 'Vietnamita', ko: 'Coreano',
+    en: 'Inglés', es: 'Español', ar: 'Árabe', vi: 'Vietnamita', ko: 'Coreano',
     ru: 'Ruso', fr: 'Francés', de: 'Alemán', it: 'Italiano', pt: 'Portugués', ja: 'Japonés',
     hi: 'Hindi', th: 'Tailandés', pl: 'Polaco', tr: 'Turco',
+    'zh-cmn': 'Chino mandarín', yue: 'Chino cantonés',
   },
   zh: {
-    en: '英语', es: '西班牙语', zh: '中文', ar: '阿拉伯语', vi: '越南语', ko: '韩语',
+    en: '英语', es: '西班牙语', ar: '阿拉伯语', vi: '越南语', ko: '韩语',
     ru: '俄语', fr: '法语', de: '德语', it: '意大利语', pt: '葡萄牙语', ja: '日语',
     hi: '印地语', th: '泰语', pl: '波兰语', tr: '土耳其语',
+    'zh-cmn': '普通话', yue: '粤语',
   },
 };
 

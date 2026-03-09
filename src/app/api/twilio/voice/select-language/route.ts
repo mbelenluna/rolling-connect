@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get('clientId') ?? '';
   const digits = params.Digits ?? '';
   const digit = digits.trim().replace(/\D/g, '');
+  const digitPadded = digit.length === 1 ? `0${digit}` : digit;
 
-  console.log('[twilio/select-language] REQUEST', { url: req.url, clientId, digits, digit });
+  console.log('[twilio/select-language] REQUEST', { url: req.url, clientId, digits, digit, digitPadded });
 
   logVoiceRequest('select-language', {
     url: req.url,
@@ -81,24 +82,17 @@ export async function POST(req: NextRequest) {
     return twimlWithLog(xml, 'missing_clientId');
   }
 
-  // Digit 9: other languages - direct to website
-  if (digit === '9') {
-    logVoiceResponse('select-language', { branch: 'other_languages' });
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">For other languages, please visit our website. Goodbye.</Say><Hangup/></Response>`;
-    return twimlWithLog(xml, 'other_languages');
-  }
-
-  // Invalid digit (not 1-8)
-  const lang = IVR_LANGUAGE_MAP[digit];
-  if (!lang || lang.target === 'other') {
+  // Look up by 2-digit key (01-60). Accept "1" as "01", "2" as "02", etc.
+  const lang = IVR_LANGUAGE_MAP[digitPadded] ?? IVR_LANGUAGE_MAP[digit];
+  if (!lang) {
     logVoiceResponse('select-language', { branch: 'invalid_digit', digit });
     const menuUrl = escapeXml(`${base}/api/twilio/voice/language-menu?clientId=${encodeURIComponent(clientId)}`);
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Invalid selection. Please try again.</Say><Redirect method="POST">${menuUrl}</Redirect></Response>`;
     return twimlWithLog(xml, 'invalid_digit_replay_menu');
   }
 
-  // Valid digit (1-8): create request and enter conference
-  const result = await createPhoneRequest(clientId, digit);
+  // Valid digit: create request and enter conference
+  const result = await createPhoneRequest(clientId, digitPadded);
 
   if (!result.ok) {
     logVoiceResponse('select-language', { branch: `create_error_${result.error}` });

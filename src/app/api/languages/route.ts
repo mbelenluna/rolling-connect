@@ -1,76 +1,43 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { FORM_LANGUAGES } from '@/lib/form-languages';
 
 export const dynamic = 'force-dynamic';
 
-const FALLBACK_LANGUAGES = [
-  { id: 'fallback-en', code: 'en', name: 'English', active: true },
-  { id: 'fallback-es', code: 'es', name: 'Spanish', active: true },
-  { id: 'fallback-zh-cmn', code: 'zh-cmn', name: 'Chinese Mandarin', active: true },
-  { id: 'fallback-yue', code: 'yue', name: 'Chinese Cantonese', active: true },
-  { id: 'fallback-ar', code: 'ar', name: 'Arabic', active: true },
-  { id: 'fallback-vi', code: 'vi', name: 'Vietnamese', active: true },
-  { id: 'fallback-ko', code: 'ko', name: 'Korean', active: true },
-  { id: 'fallback-ru', code: 'ru', name: 'Russian', active: true },
-  { id: 'fallback-fr', code: 'fr', name: 'French', active: true },
-  { id: 'fallback-sq', code: 'sq', name: 'Albanian', active: true },
-  { id: 'fallback-am', code: 'am', name: 'Amharic', active: true },
-  { id: 'fallback-hy', code: 'hy', name: 'Armenian', active: true },
-  { id: 'fallback-az', code: 'az', name: 'Azerbaijani', active: true },
-  { id: 'fallback-bah', code: 'bah', name: 'Bahamian', active: true },
-  { id: 'fallback-bn', code: 'bn', name: 'Bengali', active: true },
-  { id: 'fallback-bs', code: 'bs', name: 'Bosnian', active: true },
-  { id: 'fallback-bg', code: 'bg', name: 'Bulgarian', active: true },
-  { id: 'fallback-my', code: 'my', name: 'Burmese', active: true },
-  { id: 'fallback-ca', code: 'ca', name: 'Catalan', active: true },
-  { id: 'fallback-cs', code: 'cs', name: 'Czech', active: true },
-  { id: 'fallback-prs', code: 'prs', name: 'Dari', active: true },
-  { id: 'fallback-nl', code: 'nl', name: 'Dutch', active: true },
-  { id: 'fallback-fa', code: 'fa', name: 'Farsi', active: true },
-  { id: 'fallback-fj', code: 'fj', name: 'Fijian', active: true },
-  { id: 'fallback-fi', code: 'fi', name: 'Finnish', active: true },
-  { id: 'fallback-de', code: 'de', name: 'German', active: true },
-  { id: 'fallback-el', code: 'el', name: 'Greek', active: true },
-  { id: 'fallback-gu', code: 'gu', name: 'Gujarati', active: true },
-  { id: 'fallback-ht', code: 'ht', name: 'Haitian Creole', active: true },
-  { id: 'fallback-ha', code: 'ha', name: 'Hausa', active: true },
-  { id: 'fallback-he', code: 'he', name: 'Hebrew', active: true },
-  { id: 'fallback-hi', code: 'hi', name: 'Hindi', active: true },
-  { id: 'fallback-hmn', code: 'hmn', name: 'Hmong', active: true },
-  { id: 'fallback-hu', code: 'hu', name: 'Hungarian', active: true },
-  { id: 'fallback-ig', code: 'ig', name: 'Ibibio (Ibo)', active: true },
-  { id: 'fallback-ilo', code: 'ilo', name: 'Ilocano', active: true },
-  { id: 'fallback-id', code: 'id', name: 'Indonesian', active: true },
-  { id: 'fallback-it', code: 'it', name: 'Italian', active: true },
-  { id: 'fallback-ja', code: 'ja', name: 'Japanese', active: true },
-  { id: 'fallback-km', code: 'km', name: 'Khmer', active: true },
-  { id: 'fallback-lo', code: 'lo', name: 'Lao', active: true },
-  { id: 'fallback-lt', code: 'lt', name: 'Lithuanian', active: true },
-  { id: 'fallback-ms', code: 'ms', name: 'Malay', active: true },
-  { id: 'fallback-mn', code: 'mn', name: 'Mongolian', active: true },
-  { id: 'fallback-ne', code: 'ne', name: 'Nepali', active: true },
-  { id: 'fallback-pl', code: 'pl', name: 'Polish', active: true },
-  { id: 'fallback-pt', code: 'pt', name: 'Portuguese', active: true },
-  { id: 'fallback-pa', code: 'pa', name: 'Punjabi', active: true },
-  { id: 'fallback-ro', code: 'ro', name: 'Romanian', active: true },
-  { id: 'fallback-sr', code: 'sr', name: 'Serbian', active: true },
-  { id: 'fallback-si', code: 'si', name: 'Sinhalese', active: true },
-  { id: 'fallback-so', code: 'so', name: 'Somali', active: true },
-  { id: 'fallback-sw', code: 'sw', name: 'Swahili', active: true },
-  { id: 'fallback-sv', code: 'sv', name: 'Swedish', active: true },
-  { id: 'fallback-tl', code: 'tl', name: 'Tagalog', active: true },
-  { id: 'fallback-ta', code: 'ta', name: 'Tamil', active: true },
-  { id: 'fallback-th', code: 'th', name: 'Thai', active: true },
-  { id: 'fallback-to', code: 'to', name: 'Tongan', active: true },
-  { id: 'fallback-tr', code: 'tr', name: 'Turkish', active: true },
-  { id: 'fallback-uk', code: 'uk', name: 'Ukrainian', active: true },
-  { id: 'fallback-ur', code: 'ur', name: 'Urdu', active: true },
-];
+/** Chinese: only Mandarin and Cantonese. Exclude generic "Chinese" and duplicates. */
+const CHINESE_CODES_TO_KEEP = new Set(['zh-cmn', 'yue']);
+const CHINESE_NAMES_TO_EXCLUDE = new Set([
+  'Chinese',
+  'Simplified Chinese',
+  'Traditional Chinese',
+  'Chinese Simplified',
+  'Chinese Traditional',
+]);
+
+function isDuplicateChinese(lang: { code: string; name: string }): boolean {
+  if (CHINESE_CODES_TO_KEEP.has(lang.code)) return false;
+  if (lang.code === 'zh' || (lang.code.startsWith('zh-') && lang.code !== 'zh-cmn')) return true;
+  if (CHINESE_NAMES_TO_EXCLUDE.has(lang.name)) return true;
+  if (lang.name === 'Chinese') return true;
+  if (lang.name.startsWith('Chinese ') && lang.name !== 'Chinese Mandarin' && lang.name !== 'Chinese Cantonese') return true;
+  return false;
+}
+
+const FALLBACK_LANGUAGES = FORM_LANGUAGES.map((l, i) => ({
+  id: `fallback-${l.code}`,
+  code: l.code,
+  name: l.name,
+  active: true,
+}));
 
 export async function GET() {
-  const languages = await prisma.language.findMany({
+  let languages = await prisma.language.findMany({
     where: { active: true },
     orderBy: { name: 'asc' },
   });
-  return NextResponse.json(languages.length > 0 ? languages : FALLBACK_LANGUAGES);
+  if (languages.length === 0) {
+    languages = FALLBACK_LANGUAGES;
+  }
+  const filtered = languages.filter((l) => !isDuplicateChinese({ code: l.code, name: l.name }));
+  return NextResponse.json(filtered);
 }
