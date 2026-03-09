@@ -39,11 +39,15 @@ If calling your Twilio number doesn't work (no answer, immediate hangup, or erro
 
 - `TWILIO_AUTH_TOKEN` is not set. Add it to your environment variables and redeploy.
 
-### 4. Interpreter Can't Join the Call
+### 4. Interpreter Can't Join the Call / AccessTokenInvalid (20101)
 
+- **API Key required**: Access Tokens must be signed with an API Key, NOT the Auth Token. Set:
+  - `TWILIO_API_KEY_SID` — Create at [Twilio Console → Account → API keys](https://console.twilio.com/us1/account/keys-credentials/api-keys)
+  - `TWILIO_API_KEY_SECRET` — Shown once when creating the key. Do NOT use `TWILIO_AUTH_TOKEN` here.
 - `TWILIO_TWIML_APP_SID` must be set. Create a [TwiML App](https://console.twilio.com/us1/develop/voice/manage/twiml-apps) with:
   - Voice URL: `https://YOUR-DOMAIN.com/api/twilio/voice/connect-interpreter`
   - Voice Method: HTTP POST
+- **Debug**: Visit `GET /api/debug/twilio-token` (while logged in as interpreter) to verify token generation.
 
 ---
 
@@ -53,6 +57,7 @@ If calling your Twilio number doesn't work (no answer, immediate hangup, or erro
 - [ ] Set the number's Voice webhook to `https://YOUR-DOMAIN.com/api/twilio/voice/incoming`
 - [ ] Created TwiML App with Voice URL `https://YOUR-DOMAIN.com/api/twilio/voice/connect-interpreter`
 - [ ] Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_TWIML_APP_SID` in env
+- [ ] Set `TWILIO_API_KEY_SID` and `TWILIO_API_KEY_SECRET` (required for interpreter browser tokens)
 - [ ] Set `NEXTAUTH_URL` to your public URL (not localhost)
 - [ ] At least one Organization has a 6-digit `phoneClientId` in the database
 - [ ] Updated the phone number displayed in the app to match your Twilio number

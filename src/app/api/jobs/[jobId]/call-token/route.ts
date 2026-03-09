@@ -40,14 +40,18 @@ export async function GET(
     // Interpreter joins Twilio Conference (caller is already on the line)
     const tokenResult = createTwilioVoiceToken(`interpreter-${userId}`);
     if ('error' in tokenResult) {
-      return NextResponse.json({
-        callId: job.call.id,
-        roomId,
-        serviceType: job.request.serviceType,
-        dailyUrl: null,
-        dailyError: tokenResult.error,
-        isPhoneOriginated: true,
-      });
+      return NextResponse.json(
+        {
+          error: tokenResult.error,
+          callId: job.call.id,
+          roomId,
+          serviceType: job.request.serviceType,
+          dailyUrl: null,
+          dailyError: tokenResult.error,
+          isPhoneOriginated: true,
+        },
+        { status: 500 }
+      );
     }
     return NextResponse.json({
       callId: job.call.id,

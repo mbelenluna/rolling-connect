@@ -10,6 +10,8 @@ export async function GET() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
   const twimlAppSid = process.env.TWILIO_TWIML_APP_SID?.trim();
+  const apiKeySid = process.env.TWILIO_API_KEY_SID?.trim();
+  const apiKeySecret = process.env.TWILIO_API_KEY_SECRET?.trim();
   const nextAuthUrl = process.env.NEXTAUTH_URL?.trim();
   const vercelUrl = process.env.VERCEL_URL?.trim();
 
@@ -23,6 +25,8 @@ export async function GET() {
     TWILIO_ACCOUNT_SID: accountSid ? `Set (${accountSid.slice(0, 8)}...)` : 'NOT SET',
     TWILIO_AUTH_TOKEN: authToken ? 'Set' : 'NOT SET',
     TWILIO_TWIML_APP_SID: twimlAppSid ? `Set (${twimlAppSid})` : 'NOT SET',
+    TWILIO_API_KEY_SID: apiKeySid ? `Set (${apiKeySid.slice(0, 8)}...)` : 'NOT SET',
+    TWILIO_API_KEY_SECRET: apiKeySecret ? 'Set' : 'NOT SET',
     NEXTAUTH_URL: nextAuthUrl || 'NOT SET',
     VERCEL_URL: vercelUrl || 'NOT SET',
     effectiveBaseUrl: baseUrl,
@@ -36,6 +40,11 @@ export async function GET() {
   if (!accountSid) issues.push('TWILIO_ACCOUNT_SID is not set');
   if (!authToken) issues.push('TWILIO_AUTH_TOKEN is not set');
   if (!twimlAppSid) issues.push('TWILIO_TWIML_APP_SID is not set (needed for interpreter to join via browser)');
+  if (!apiKeySid || !apiKeySecret) {
+    issues.push(
+      'TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET are required for interpreter tokens. Create at console.twilio.com → Account → API keys. Do NOT use Auth Token for Access Tokens.'
+    );
+  }
 
   if (baseUrl.includes('localhost')) {
     issues.push(

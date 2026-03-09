@@ -45,6 +45,11 @@ export default function TwilioCallRoom({
   useEffect(() => {
     if (!twilioToken || !conferenceName) return;
 
+    // Diagnostic: token length (do not log full token)
+    if (typeof window !== 'undefined') {
+      console.log('[TwilioCallRoom] token received', { tokenLength: twilioToken?.length ?? 0, conferenceName });
+    }
+
     const device = new Device(twilioToken, {
       logLevel: 0,
       codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
@@ -53,6 +58,7 @@ export default function TwilioCallRoom({
     deviceRef.current = device;
 
     device.on('registered', () => {
+      if (typeof window !== 'undefined') console.log('[TwilioCallRoom] device registered, connecting to conference');
       setStatus('connecting');
       device
         .connect({ params: { conferenceName } })
@@ -84,7 +90,7 @@ export default function TwilioCallRoom({
     });
 
     device.on('error', (err) => {
-      console.error('[TwilioCallRoom] device error:', err);
+      console.error('[TwilioCallRoom] device error:', err?.message ?? err, err);
       setError(err.message || 'Connection failed');
       setStatus('error');
     });
