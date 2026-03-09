@@ -38,7 +38,9 @@ export async function GET() {
   if (languages.length === 0) {
     languages = FALLBACK_LANGUAGES;
   }
-  const filtered = languages.filter((l) => !isDuplicateChinese({ code: l.code, name: l.name }));
+  const filtered = languages.filter(
+    (l) => !isDuplicateChinese({ code: l.code, name: l.name }) && l.code !== 'en'
+  );
   // Normalize display names for zh-cmn and yue (DB may have old "Chinese"/"Cantonese")
   const normalized = filtered.map((l) => {
     if (l.code === 'zh-cmn') return { ...l, name: 'Chinese Mandarin' };

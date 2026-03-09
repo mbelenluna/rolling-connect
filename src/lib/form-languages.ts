@@ -24,7 +24,6 @@ export const FORM_LANGUAGES: FormLanguage[] = [
   { code: 'cs', name: 'Czech' },
   { code: 'prs', name: 'Dari' },
   { code: 'nl', name: 'Dutch' },
-  { code: 'en', name: 'English' },
   { code: 'fa', name: 'Farsi' },
   { code: 'fj', name: 'Fijian' },
   { code: 'fi', name: 'Finnish' },

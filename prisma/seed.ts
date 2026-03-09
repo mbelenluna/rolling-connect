@@ -8,7 +8,6 @@ async function main() {
 
   // Languages (Chinese: only Mandarin and Cantonese; no duplicates)
   const languages = [
-    { code: 'en', name: 'English' },
     { code: 'es', name: 'Spanish' },
     { code: 'zh-cmn', name: 'Chinese Mandarin' },
     { code: 'yue', name: 'Chinese Cantonese' },
