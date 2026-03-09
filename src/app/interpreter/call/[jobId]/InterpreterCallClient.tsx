@@ -34,10 +34,16 @@ export default function InterpreterCallClient() {
   }, [jobId]);
 
   if (error) {
+    const isCallEnded = error.includes('call has ended') || error.includes('no longer active');
     return (
       <div className="max-w-md mx-auto text-center py-16">
-        <p className="text-red-600 mb-4">{error}</p>
-        <a href="/interpreter" className="text-brand-600 hover:underline">Back to dashboard</a>
+        <p className={isCallEnded ? 'text-slate-700 mb-4' : 'text-red-600 mb-4'}>{error}</p>
+        <div className="flex gap-4 justify-center">
+          <a href={`/interpreter/call/${jobId}/summary`} className="text-brand-600 hover:underline">
+            View session summary
+          </a>
+          <a href="/interpreter" className="text-brand-600 hover:underline">Back to dashboard</a>
+        </div>
       </div>
     );
   }

@@ -33,6 +33,18 @@ export async function GET(
   if (job.assignedInterpreterId !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!job.call) return NextResponse.json({ error: 'Call not created' }, { status: 500 });
 
+  // Session ended: caller hung up or call was ended. Do not allow rejoin.
+  if (job.status === 'completed' || job.call.endedAt != null) {
+    return NextResponse.json(
+      {
+        error: 'This call has ended. The session is no longer active.',
+        callEnded: true,
+        isPhoneOriginated: job.call.roomId?.startsWith('rolling-') ?? false,
+      },
+      { status: 410 }
+    );
+  }
+
   const roomId = job.call.roomId;
   const conferenceName = roomId;
 

@@ -144,6 +144,11 @@ export default function InterpreterPageClient() {
       setOffers((prev) => prev.filter((o) => o.jobId !== data.jobId));
     });
 
+    socket.on('call_ended', (data: { jobId: string }) => {
+      setAssignedJob((prev) => (prev?.jobId === data.jobId ? null : prev));
+      setActiveCalls((prev) => prev.filter((ac) => ac.jobId !== data.jobId));
+    });
+
     return () => {
       socket.disconnect();
     };
