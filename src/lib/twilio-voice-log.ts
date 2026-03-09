@@ -11,6 +11,7 @@ export function getIvrVersion(): string {
 
 export function logVoiceRequest(route: string, data: {
   url?: string;
+  method?: string;
   step?: string | null;
   clientId?: string | null;
   digits?: string;
