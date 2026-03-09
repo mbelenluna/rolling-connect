@@ -1094,10 +1094,11 @@ export const specialtyNamesByLocale: Record<Locale, Record<string, string>> = {
 
 export function getTranslatedLanguageName(locale: Locale, code: string, fallback?: string): string {
   const baseCode = code.split('-')[0].toLowerCase();
-  return languageNamesByLocale[locale]?.[baseCode]
-    ?? languageNamesByLocale[locale]?.[code]
-    ?? languageNamesByLocale.en?.[baseCode]
+  // Check exact code first (e.g. zh-cmn, yue) so we never match generic "zh" → "Chinese"
+  return languageNamesByLocale[locale]?.[code]
+    ?? languageNamesByLocale[locale]?.[baseCode]
     ?? languageNamesByLocale.en?.[code]
+    ?? languageNamesByLocale.en?.[baseCode]
     ?? fallback
     ?? code;
 }

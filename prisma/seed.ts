@@ -71,7 +71,7 @@ async function main() {
     { code: 'ur', name: 'Urdu' },
   ];
   for (const l of languages) {
-    await prisma.language.upsert({ where: { code: l.code }, update: {}, create: l });
+    await prisma.language.upsert({ where: { code: l.code }, update: { name: l.name }, create: l });
   }
 
   // Specialties

@@ -39,5 +39,11 @@ export async function GET() {
     languages = FALLBACK_LANGUAGES;
   }
   const filtered = languages.filter((l) => !isDuplicateChinese({ code: l.code, name: l.name }));
-  return NextResponse.json(filtered);
+  // Normalize display names for zh-cmn and yue (DB may have old "Chinese"/"Cantonese")
+  const normalized = filtered.map((l) => {
+    if (l.code === 'zh-cmn') return { ...l, name: 'Chinese Mandarin' };
+    if (l.code === 'yue') return { ...l, name: 'Chinese Cantonese' };
+    return l;
+  });
+  return NextResponse.json(normalized);
 }
