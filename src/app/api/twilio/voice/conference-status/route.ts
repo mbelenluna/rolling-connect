@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
   const friendlyName = params.FriendlyName || '';
   const jobId = getJobIdFromConference(friendlyName);
 
+  console.log('[twilio/conference-status] EVENT', { event, participantLabel, friendlyName, jobId });
+
   if (!jobId) return new NextResponse('', { status: 200 });
 
   try {

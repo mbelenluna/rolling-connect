@@ -25,6 +25,7 @@ function twimlResponse(method: string) {
 
 export async function GET(req: NextRequest) {
   const params = Object.fromEntries(req.nextUrl.searchParams);
+  console.log('[twilio/hold-message] REQUEST', { method: 'GET', callSid: params.CallSid });
   logVoiceRequest('hold-message', { url: req.url, method: 'GET', callSid: params.CallSid });
   return twimlResponse('GET');
 }
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const params = Object.fromEntries(new URLSearchParams(body));
+  console.log('[twilio/hold-message] REQUEST', { method: 'POST', callSid: params.CallSid });
   logVoiceRequest('hold-message', { url: req.url, method: 'POST', callSid: params.CallSid, bodyKeys: Object.keys(params) });
   return twimlResponse('POST');
 }

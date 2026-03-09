@@ -11,19 +11,18 @@ const LOG_PREFIX = '[phone-request]';
 
 /**
  * DTMF digit → target language (source is always English for US callers).
- * Single digits 1-9, 0 for IVR (short prompt). spokenName is used in IVR prompts.
+ * Digits 1-8: real languages. 9: other languages (handled separately in select-language).
  */
 export const IVR_LANGUAGE_MAP: Record<string, { source: string; target: string; spokenName: string }> = {
   '1': { source: 'en', target: 'es', spokenName: 'Spanish' },
-  '2': { source: 'en', target: 'zh-cmn', spokenName: 'Chinese Mandarin' },
-  '3': { source: 'en', target: 'yue', spokenName: 'Chinese Cantonese' },
-  '4': { source: 'en', target: 'ar', spokenName: 'Arabic' },
+  '2': { source: 'en', target: 'zh-cmn', spokenName: 'Chinese' },
+  '3': { source: 'en', target: 'ko', spokenName: 'Korean' },
+  '4': { source: 'en', target: 'ru', spokenName: 'Russian' },
   '5': { source: 'en', target: 'vi', spokenName: 'Vietnamese' },
-  '6': { source: 'en', target: 'ko', spokenName: 'Korean' },
-  '7': { source: 'en', target: 'ru', spokenName: 'Russian' },
-  '8': { source: 'en', target: 'fr', spokenName: 'French' },
-  '9': { source: 'en', target: 'de', spokenName: 'German' },
-  '0': { source: 'en', target: 'tl', spokenName: 'Tagalog' },
+  '6': { source: 'en', target: 'pt', spokenName: 'Portuguese' },
+  '7': { source: 'en', target: 'ht', spokenName: 'Haitian Creole' },
+  '8': { source: 'en', target: 'ar', spokenName: 'Arabic' },
+  '9': { source: 'en', target: 'other', spokenName: 'other languages' },
 };
 
 export type CreatePhoneRequestResult =
@@ -35,7 +34,7 @@ export async function createPhoneRequest(
   languageDigit: string
 ): Promise<CreatePhoneRequestResult> {
   const lang = IVR_LANGUAGE_MAP[languageDigit];
-  if (!lang) {
+  if (!lang || lang.target === 'other') {
     console.warn(LOG_PREFIX, 'Invalid language digit', { languageDigit });
     return { ok: false, error: 'INVALID_LANGUAGE' };
   }

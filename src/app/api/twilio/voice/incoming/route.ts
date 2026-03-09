@@ -11,8 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
-import { createPhoneRequest, IVR_LANGUAGE_MAP } from '@/lib/phone-request';
-import { getIvrVersion, logVoiceRequest, logVoiceResponse } from '@/lib/twilio-voice-log';
+import { logVoiceRequest, logVoiceResponse } from '@/lib/twilio-voice-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,14 +46,6 @@ function escapeXml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
-/** Build language menu text (short prompt, single digits 1-9 and 0). Say is nested inside Gather so user can interrupt. */
-function buildLanguageMenu(): string {
-  const lines = Object.entries(IVR_LANGUAGE_MAP)
-    .map(([digit, v]) => `Press ${digit} for ${v.spokenName}.`)
-    .join(' ');
-  return `Select your language. ${lines}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -106,9 +97,8 @@ async function handleIncoming(req: NextRequest) {
 
   if (!step) {
     // Initial call: greet and collect client ID (Say inside Gather, no actionOnEmptyResult to avoid carryover)
-    const version = getIvrVersion();
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=validate_client`);
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" input="dtmf"><Say voice="alice" language="en-US">Welcome to Rolling Connect. ${version}. Please enter your 6 digit client ID, followed by the pound key.</Say></Gather><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`;
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" input="dtmf"><Say voice="alice" language="en-US">Thank you for calling Rolling Connect. Please enter your six-digit client code followed by the pound key.</Say></Gather><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`;
     logVoiceResponse('incoming', { step: null, branch: 'greeting', twimlPreview: xml, twimlLength: xml.length });
     return twimlWithLog(xml, 'greeting');
   }
@@ -140,47 +130,9 @@ async function handleIncoming(req: NextRequest) {
     const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const base = baseUrl.replace(/\/$/, '');
     const menuUrl = escapeXml(`${base}/api/twilio/voice/language-menu?clientId=${encodeURIComponent(clientId)}`);
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Client code accepted.</Say><Pause length="1"/><Redirect method="POST">${menuUrl}</Redirect></Response>`;
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Thank you.</Say><Pause length="1"/><Redirect method="POST">${menuUrl}</Redirect></Response>`;
     logVoiceResponse('incoming', { step, branch: 'validate_client_redirect_to_menu', twimlPreview: xml });
     return twimlWithLog(xml, 'validate_client_redirect_to_menu');
-  }
-
-  if (step === 'create_request' && clientIdParam) {
-    const digit = digits.trim().replace(/\D/g, '');
-    if (!digit) {
-      logVoiceResponse('incoming', { step, branch: 'create_request_empty_digits', digits });
-      return sayAndHangup('We did not receive your language selection. Goodbye.', 'create_request_empty_digits');
-    }
-    const result = await createPhoneRequest(clientIdParam, digit);
-
-    if (!result.ok) {
-      logVoiceResponse('incoming', { step, branch: `create_request_error_${result.error}` });
-      if (result.error === 'INVALID_CLIENT_ID') {
-        return sayAndHangup('Invalid client ID. Goodbye.', 'create_request_invalid_client');
-      }
-      if (result.error === 'ORG_NOT_APPROVED' || result.error === 'NO_OWNER') {
-        return sayAndHangup('Your account is not set up for phone requests. Please contact your administrator. Goodbye.', 'create_request_org_not_approved');
-      }
-      return sayAndHangup('Invalid language selection. Goodbye.', 'create_request_invalid_language');
-    }
-
-    if (result.interpretersMatched === 0) {
-      logVoiceResponse('incoming', { step, branch: 'create_request_no_interpreters' });
-      return sayAndHangup(
-        'Your interpretation request has been received. Unfortunately, no interpreters are available at this time. Please try again later or use our website. Goodbye.',
-        'create_request_no_interpreters'
-      );
-    }
-
-    logVoiceResponse('incoming', { step, branch: 'create_request_ok_conference' });
-    // Connecting message first, then conference with hold music (waitUrl only used after caller joins conference)
-    const conferenceName = `rolling-${result.jobId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-    const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const base = baseUrl.replace(/\/$/, '');
-    const waitUrl = `${base}/api/twilio/voice/hold-message`;
-    const statusCallback = `${base}/api/twilio/voice/conference-status`;
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter. Please hold.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
-    return twimlWithLog(xml, 'create_request_ok_conference');
   }
 
   logVoiceResponse('incoming', { step, branch: 'fallback_unknown_step' });

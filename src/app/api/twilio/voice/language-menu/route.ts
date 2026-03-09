@@ -1,8 +1,6 @@
 /**
  * Dedicated route for language menu. Called via Redirect from validate_client
  * after Say + Pause to ensure a fresh request context (no DTMF carryover).
- *
- * DEBUG: Returns minimal Gather with actionOnEmptyResult to isolate Gather execution.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
@@ -24,6 +22,9 @@ function escapeXml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 }
+
+const LANGUAGE_MENU_PROMPT =
+  'For Spanish, press 1. For Chinese, press 2. For Korean, press 3. For Russian, press 4. For Vietnamese, press 5. For Portuguese, press 6. For Haitian Creole, press 7. For Arabic, press 8. For other languages, press 9.';
 
 /** Handle GET (e.g. if redirect uses GET) or POST. */
 async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
@@ -64,9 +65,16 @@ async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
     to: params.To,
   });
 
-  // DEBUG: Minimal Gather, no fallback Say. actionOnEmptyResult so timeout also POSTs to debug-language.
-  const debugUrl = escapeXml(`${base}/api/twilio/voice/debug-language`);
-  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${debugUrl}" actionOnEmptyResult="true"><Say voice="alice" language="en-US">This is RC language menu test version 4. Press 1 now.</Say></Gather></Response>`;
+  if (!clientId) {
+    console.log('[twilio/language-menu] missing_clientId');
+    logVoiceResponse('language-menu', { branch: 'missing_clientId' });
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Invalid session. Please call again. Goodbye.</Say><Hangup/></Response>`;
+    return twiml(xml);
+  }
+
+  // actionOnEmptyResult so timeout also POSTs to select-language (handles empty Digits cleanly)
+  const selectUrl = escapeXml(`${base}/api/twilio/voice/select-language?clientId=${encodeURIComponent(clientId)}`);
+  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${selectUrl}" actionOnEmptyResult="true"><Say voice="alice" language="en-US">${escapeXml(LANGUAGE_MENU_PROMPT)}</Say></Gather></Response>`;
 
   console.log('[twilio/language-menu] EXACT_TWIML_RETURNED', { fullXml: langXml });
   logVoiceResponse('language-menu', { branch: 'menu_returned', twimlPreview: langXml });
