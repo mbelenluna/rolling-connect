@@ -5,12 +5,12 @@
 import { prisma } from './prisma';
 import { findEligibleInterpreters } from './matching';
 import { cancelStaleJobs } from './cancel-job';
+import { IVR_LANGUAGE_MAP } from './ivr-languages';
 
 const OFFER_TIMEOUT_SEC = 60;
 const LOG_PREFIX = '[phone-request]';
 
-/** Re-export IVR language map (01-60, matches online form). */
-export { IVR_LANGUAGE_MAP } from './ivr-languages';
+export { IVR_LANGUAGE_MAP };
 
 export type CreatePhoneRequestResult =
   | { ok: true; requestId: string; jobId: string; interpretersMatched: number }
