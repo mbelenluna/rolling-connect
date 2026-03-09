@@ -1,10 +1,11 @@
 /**
  * Dedicated route for language menu. Called via Redirect from validate_client
- * to ensure a fresh request context (no digit carryover from client code entry).
+ * after Say + Pause to ensure a fresh request context (no DTMF carryover).
+ *
+ * DEBUG: Returns minimal Gather with actionOnEmptyResult to isolate Gather execution.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
-import { IVR_LANGUAGE_MAP } from '@/lib/phone-request';
 import { logVoiceRequest, logVoiceResponse } from '@/lib/twilio-voice-log';
 
 export const dynamic = 'force-dynamic';
@@ -22,13 +23,6 @@ function escapeXml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
-function buildLanguageMenu(): string {
-  const lines = Object.entries(IVR_LANGUAGE_MAP)
-    .map(([digit, v]) => `Press ${digit} for ${v.spokenName}.`)
-    .join(' ');
-  return `Select your language. ${lines}`;
 }
 
 /** Handle GET (e.g. if redirect uses GET) or POST. */
@@ -59,6 +53,8 @@ async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
   const clientId = req.nextUrl.searchParams.get('clientId') ?? '';
   const digits = params.Digits ?? '';
 
+  console.log('[twilio/language-menu] REQUEST', { url: req.url, clientId, digits, method: req.method });
+
   logVoiceRequest('language-menu', {
     url: req.url,
     clientId,
@@ -68,18 +64,12 @@ async function handleLanguageMenu(req: NextRequest): Promise<NextResponse> {
     to: params.To,
   });
 
-  if (!clientId) {
-    logVoiceResponse('language-menu', { branch: 'missing_clientId' });
-    return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Invalid session. Please call again. Goodbye.</Say><Hangup/></Response>`
-    );
-  }
+  // DEBUG: Minimal Gather, no fallback Say. actionOnEmptyResult so timeout also POSTs to debug-language.
+  const debugUrl = escapeXml(`${base}/api/twilio/voice/debug-language`);
+  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${debugUrl}" actionOnEmptyResult="true"><Say voice="alice" language="en-US">This is RC language menu test version 4. Press 1 now.</Say></Gather></Response>`;
 
-  const actionUrl = escapeXml(`${base}/api/twilio/voice/incoming?step=create_request&clientId=${encodeURIComponent(clientId)}`);
-  const langMenu = buildLanguageMenu();
-  const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="15" action="${actionUrl}" method="POST" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your language selection. Goodbye.</Say><Hangup/></Response>`;
-
-  logVoiceResponse('language-menu', { branch: 'menu_returned', twimlPreview: langXml, twimlLength: langXml.length });
+  console.log('[twilio/language-menu] EXACT_TWIML_RETURNED', { fullXml: langXml });
+  logVoiceResponse('language-menu', { branch: 'menu_returned', twimlPreview: langXml });
   return twiml(langXml);
 }
 

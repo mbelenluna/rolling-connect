@@ -135,13 +135,14 @@ async function handleIncoming(req: NextRequest) {
       return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.', 'validate_client_org_not_found');
     }
 
-    // DEBUG: Minimal inline flow (no redirect). Confirms production serves latest code and Gather works.
+    // Redirect-based separation: Say + Pause + Redirect to avoid DTMF carryover from client-code Gather.
+    // Client-code Gather uses finishOnKey="#" so # submits; redirect ensures language Gather starts cleanly.
     const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const base = baseUrl.replace(/\/$/, '');
-    const debugUrl = escapeXml(`${base}/api/twilio/voice/debug-language`);
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${debugUrl}"><Say voice="alice" language="en-US">This is RC language menu test version 3. Press 1 now.</Say></Gather><Say voice="alice" language="en-US">No input received.</Say><Hangup/></Response>`;
-    logVoiceResponse('incoming', { step, branch: 'validate_client_debug_flow', twimlPreview: xml });
-    return twimlWithLog(xml, 'validate_client_debug_flow');
+    const menuUrl = escapeXml(`${base}/api/twilio/voice/language-menu?clientId=${encodeURIComponent(clientId)}`);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Client code accepted.</Say><Pause length="1"/><Redirect method="POST">${menuUrl}</Redirect></Response>`;
+    logVoiceResponse('incoming', { step, branch: 'validate_client_redirect_to_menu', twimlPreview: xml });
+    return twimlWithLog(xml, 'validate_client_redirect_to_menu');
   }
 
   if (step === 'create_request' && clientIdParam) {
