@@ -182,6 +182,10 @@ export const translations = {
     billingSetupDescription:
       'You need to set up a Direct Debit mandate to use Rolling Connect. This is a one-time setup that authorizes us to collect payments for interpretation services.',
     billingSetupButton: 'Set up payment',
+    billingReauthTitle: 'Reconnect your bank account',
+    billingReauthMessage: 'Your bank authorization has been cancelled.',
+    billingReauthDescription: 'Please reconnect your bank account to continue using Rolling Connect.',
+    billingReauthButton: 'Reconnect bank account',
     billingErrorMissingFlow: 'Invalid return from payment setup. Please try again.',
     billingErrorInvalidFlow: 'This payment setup link has expired or is invalid. Please start again.',
     billingErrorConfirmFailed: 'We could not complete your payment setup. Please try again.',
@@ -525,6 +529,10 @@ export const translations = {
     billingSetupDescription:
       'Debe configurar un mandato de domiciliación bancaria para usar Rolling Connect. Es una configuración única que nos autoriza a cobrar los servicios de interpretación.',
     billingSetupButton: 'Configurar pago',
+    billingReauthTitle: 'Reconecte su cuenta bancaria',
+    billingReauthMessage: 'Su autorización bancaria ha sido cancelada.',
+    billingReauthDescription: 'Por favor reconecte su cuenta bancaria para continuar usando Rolling Connect.',
+    billingReauthButton: 'Reconectar cuenta bancaria',
     billingErrorMissingFlow: 'Retorno inválido de la configuración de pago. Inténtelo de nuevo.',
     billingErrorInvalidFlow: 'Este enlace de configuración ha expirado o no es válido. Comience de nuevo.',
     billingErrorConfirmFailed: 'No pudimos completar la configuración de pago. Inténtelo de nuevo.',
@@ -865,6 +873,10 @@ export const translations = {
     billingSetupDescription:
       '您需要设置直接扣款授权才能使用 Rolling Connect。这是一次性设置，授权我们收取口译服务费用。',
     billingSetupButton: '设置付款',
+    billingReauthTitle: '重新连接您的银行账户',
+    billingReauthMessage: '您的银行授权已被取消。',
+    billingReauthDescription: '请重新连接您的银行账户以继续使用 Rolling Connect。',
+    billingReauthButton: '重新连接银行账户',
     billingErrorMissingFlow: '付款设置返回无效。请重试。',
     billingErrorInvalidFlow: '此付款设置链接已过期或无效。请重新开始。',
     billingErrorConfirmFailed: '无法完成您的付款设置。请重试。',

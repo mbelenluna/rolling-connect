@@ -18,12 +18,27 @@ export async function GET(
 
   const request = await prisma.interpretationRequest.findFirst({
     where: { id: requestId },
-    include: { jobs: { include: { call: true } } },
+    include: { jobs: { include: { call: true } }, organization: true },
   });
 
   if (!request) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const role = (session.user as { role?: string }).role;
+
+  // Billing gate: clients need org owner to have active billing to join
+  if (role === 'client') {
+    const { requireActiveBilling, getOrgOwnerId } = await import('@/lib/billing');
+    const ownerId = await getOrgOwnerId(request.organizationId);
+    if (ownerId) {
+      const billing = await requireActiveBilling(ownerId);
+      if (!billing.ok) {
+        return NextResponse.json(
+          { ok: false, error: 'Billing authorization required', code: 'BILLING_REAUTH_REQUIRED' },
+          { status: 402 }
+        );
+      }
+    }
+  }
   const userId = (session.user as { id?: string }).id!;
   const userName = (session.user as { name?: string }).name || 'Participant';
 

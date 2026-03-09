@@ -74,6 +74,7 @@ export async function GET(req: Request) {
       console.error('Billing confirm completeRedirectFlow error:', apiMsg, apiErr);
       redirect(`/subscribe?error=confirm_failed&errorDetail=${encodeURIComponent(apiMsg.slice(0, 100))}`);
     }
+    // Billing state transition: reauthorization complete → active, clear disabled fields
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -81,6 +82,8 @@ export async function GET(req: Request) {
         goCardlessMandateId: mandateId,
         goCardlessBankAccountId: bankAccountId,
         subscriptionStatus: 'ACTIVE',
+        billingDisabledAt: null,
+        billingDisabledReason: null,
         ...(role === 'client' && { approvedAt: new Date(), registrationPath: 'gocardless' }),
       },
     });

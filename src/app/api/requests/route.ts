@@ -74,6 +74,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Organization access denied' }, { status: 403 });
     }
 
+    // Billing gate: org owner must have active billing
+    const { requireActiveBilling, getOrgOwnerId } = await import('@/lib/billing');
+    const ownerId = await getOrgOwnerId(data.organizationId);
+    if (ownerId) {
+      const billing = await requireActiveBilling(ownerId);
+      if (!billing.ok) {
+        console.warn(LOG_PREFIX, 'Billing requires reauthorization', { userId, organizationId: data.organizationId });
+        return NextResponse.json(
+          { ok: false, error: 'Billing authorization required', code: 'BILLING_REAUTH_REQUIRED' },
+          { status: 402 }
+        );
+      }
+    }
+
     const isAI = data.interpretationType === 'ai';
     console.log(LOG_PREFIX, 'Creating request', { userId, role, interpretationType: data.interpretationType, sourceLanguage: data.sourceLanguage, targetLanguage: data.targetLanguage, specialty: data.specialty });
 

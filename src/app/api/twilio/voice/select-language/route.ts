@@ -104,6 +104,10 @@ export async function POST(req: NextRequest) {
       const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your account is not set up for phone requests. Please contact your administrator. Goodbye.</Say><Hangup/></Response>`;
       return twimlWithLog(xml, 'create_error_org_not_approved');
     }
+    if (result.error === 'BILLING_REAUTH_REQUIRED') {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your bank authorization has been cancelled. Please reconnect your bank account on our website to continue using phone interpretation. Goodbye.</Say><Hangup/></Response>`;
+      return twimlWithLog(xml, 'create_error_billing_reauth');
+    }
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Invalid language selection. Goodbye.</Say><Hangup/></Response>`;
     return twimlWithLog(xml, 'create_error_invalid_language');
   }

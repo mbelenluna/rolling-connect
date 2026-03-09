@@ -67,6 +67,7 @@ enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
   CANCELED
+  REQUIRES_REAUTHORIZATION
 }
 
 model User {
@@ -85,6 +86,8 @@ model User {
   subscriptionStatus       SubscriptionStatus @default(INCOMPLETE) @map("subscription_status")
   subscriptionPlan         String?            @map("subscription_plan")
   currentPeriodEnd         DateTime?          @map("current_period_end")
+  billingDisabledAt        DateTime?          @map("billing_disabled_at")
+  billingDisabledReason    String?            @map("billing_disabled_reason")
   createdAt                DateTime           @default(now()) @map("created_at")
   updatedAt                DateTime           @updatedAt @map("updated_at")
 
@@ -325,12 +328,13 @@ model AuditLog {
 }
 
 model GoCardlessWebhookEvent {
-  id           String   @id @default(uuid())
-  eventId      String   @unique @map("event_id")
-  resourceType String   @map("resource_type")
+  id           String    @id @default(uuid())
+  eventId      String    @unique @map("event_id")
+  resourceType String    @map("resource_type")
   action       String
-  payloadJson  Json?    @map("payload_json")
-  createdAt    DateTime @default(now()) @map("created_at")
+  payloadJson  Json?     @map("payload_json")
+  processedAt  DateTime? @map("processed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   @@map("gocardless_webhook_events")
 }

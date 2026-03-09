@@ -26,8 +26,12 @@ export default function ClientCallClient() {
 
   useEffect(() => {
     fetch(`/api/requests/${requestId}/call-token`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok && (d.code === 'BILLING_REAUTH_REQUIRED' || r.status === 402)) {
+          setError('BILLING_REAUTH');
+          return;
+        }
         if (d.error) throw new Error(d.error);
         setData(d);
       })
@@ -35,6 +39,17 @@ export default function ClientCallClient() {
   }, [requestId]);
 
   if (error) {
+    if (error === 'BILLING_REAUTH') {
+      return (
+        <div className="max-w-md mx-auto text-center py-16">
+          <p className="text-amber-900 font-medium mb-2">{t('billingReauthMessage')}</p>
+          <p className="text-slate-600 mb-6">{t('billingReauthDescription')}</p>
+          <Link href="/billing/reauthorize" className="inline-block px-6 py-2 bg-brand-600 text-white rounded-lg">{t('billingReauthButton')}</Link>
+          <span className="mx-2">{t('or')}</span>
+          <Link href="/client/requests" className="text-brand-600 hover:underline">Back to requests</Link>
+        </div>
+      );
+    }
     return (
       <div className="max-w-md mx-auto text-center py-16">
         <p className="text-red-600 mb-4">{error}</p>

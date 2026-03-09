@@ -11,11 +11,48 @@ export async function GET() {
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if ((session.user as { role?: string }).role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    let users: { id: string; email: string; name: string; role: string; approvedAt: Date | null; rejectedAt: Date | null; createdAt: Date }[];
+    let users: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      approvedAt: Date | null;
+      rejectedAt: Date | null;
+      createdAt: Date;
+      languagePairs?: { source: string; target: string }[];
+      specialties?: string[];
+    }[];
     try {
-      users = await prisma.user.findMany({
-        select: { id: true, email: true, name: true, role: true, approvedAt: true, rejectedAt: true, createdAt: true },
+      const raw = await prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          approvedAt: true,
+          rejectedAt: true,
+          createdAt: true,
+          interpreterProfile: { select: { languagePairs: true, specialties: true } },
+        },
         orderBy: { createdAt: 'desc' },
+      });
+      users = raw.map((u) => {
+        const profile = u.interpreterProfile;
+        const languagePairs = Array.isArray(profile?.languagePairs)
+          ? (profile.languagePairs as { source: string; target: string }[])
+          : [];
+        const specialties = Array.isArray(profile?.specialties) ? (profile.specialties as string[]) : [];
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          approvedAt: u.approvedAt,
+          rejectedAt: u.rejectedAt,
+          createdAt: u.createdAt,
+          languagePairs,
+          specialties,
+        };
       });
     } catch (prismaErr) {
       console.warn('Admin users fallback (approvedAt/rejectedAt may be missing):', prismaErr);
@@ -23,7 +60,7 @@ export async function GET() {
         select: { id: true, email: true, name: true, role: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       });
-      users = basic.map((u) => ({ ...u, approvedAt: null, rejectedAt: null }));
+      users = basic.map((u) => ({ ...u, approvedAt: null, rejectedAt: null, languagePairs: [], specialties: [] }));
     }
 
     return NextResponse.json(users);

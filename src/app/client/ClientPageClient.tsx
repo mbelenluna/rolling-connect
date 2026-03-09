@@ -103,7 +103,15 @@ export default function ClientPageClient() {
     pending: boolean;
   } | null>(null);
   const [orgs, setOrgs] = useState<{ id: string; name: string; phoneClientId?: string | null }[]>([]);
+  const [billingReauth, setBillingReauth] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/billing/status')
+      .then((r) => r.json())
+      .then((d) => setBillingReauth(d.requiresReauthorization === true))
+      .catch(() => setBillingReauth(false));
+  }, []);
 
   useEffect(() => {
     fetch('/api/client/approval-status')
@@ -148,7 +156,21 @@ export default function ClientPageClient() {
 
   return (
     <div>
-      {billingSuccess && (
+      {billingReauth && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-amber-900 font-medium">{t('billingReauthMessage')}</p>
+            <p className="text-amber-800 text-sm mt-1">{t('billingReauthDescription')}</p>
+          </div>
+          <Link
+            href="/billing/reauthorize"
+            className="shrink-0 px-4 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition text-center"
+          >
+            {t('billingReauthButton')}
+          </Link>
+        </div>
+      )}
+      {billingSuccess && !billingReauth && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
           <p className="text-green-800 font-medium">{t('gocardlessCompleteTitle')}</p>
           <p className="text-green-700 text-sm mt-1">{t('gocardlessCompleteMessage')}</p>

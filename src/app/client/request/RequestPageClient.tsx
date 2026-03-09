@@ -15,7 +15,7 @@ export default function RequestPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const [step, setStep] = useState<'form' | 'matching' | 'assigned' | 'error' | 'no_match'>('form');
+  const [step, setStep] = useState<'form' | 'matching' | 'assigned' | 'error' | 'billing_error' | 'no_match'>('form');
   const [orgs, setOrgs] = useState<{ id: string; name: string; phoneClientId?: string | null }[]>([]);
   const [languages, setLanguages] = useState<{ code: string; name: string }[]>([]);
   const [specialties, setSpecialties] = useState<{ code: string; name: string }[]>([]);
@@ -174,6 +174,12 @@ export default function RequestPageClient() {
           setLoading(false);
           return;
         }
+        if (data.code === 'BILLING_REAUTH_REQUIRED' || res.status === 402) {
+          setError(t('billingReauthMessage'));
+          setStep('billing_error');
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || t('failedToCreateRequest'));
       }
 
@@ -231,6 +237,19 @@ export default function RequestPageClient() {
           {isAi ? t('settingUpCall') : t('interpretersNotified')}
         </p>
         <Link href="/client/requests" className="mt-6 inline-block text-brand-600 hover:underline">{t('viewRequests')}</Link>
+      </div>
+    );
+  }
+
+  if (step === 'billing_error') {
+    return (
+      <div className="max-w-md mx-auto text-center py-16">
+        <div className="w-16 h-16 rounded-full bg-amber-100 mx-auto mb-4 flex items-center justify-center text-amber-600 text-2xl">!</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">{t('billingReauthMessage')}</h2>
+        <p className="text-slate-600 mb-6">{t('billingReauthDescription')}</p>
+        <Link href="/billing/reauthorize" className="inline-block px-6 py-2 bg-brand-600 text-white rounded-lg">{t('billingReauthButton')}</Link>
+        <span className="mx-2">{t('or')}</span>
+        <Link href="/client" className="inline-block text-brand-600 hover:underline">{t('backToDashboard')}</Link>
       </div>
     );
   }

@@ -14,7 +14,7 @@ export { IVR_LANGUAGE_MAP };
 
 export type CreatePhoneRequestResult =
   | { ok: true; requestId: string; jobId: string; interpretersMatched: number }
-  | { ok: false; error: 'INVALID_CLIENT_ID' | 'INVALID_LANGUAGE' | 'ORG_NOT_APPROVED' | 'NO_OWNER' };
+  | { ok: false; error: 'INVALID_CLIENT_ID' | 'INVALID_LANGUAGE' | 'ORG_NOT_APPROVED' | 'NO_OWNER' | 'BILLING_REAUTH_REQUIRED' };
 
 export async function createPhoneRequest(
   phoneClientId: string,
@@ -31,7 +31,7 @@ export async function createPhoneRequest(
     include: {
       members: {
         where: { role: 'owner' },
-        include: { user: { select: { id: true, approvedAt: true, rejectedAt: true } } },
+        include: { user: { select: { id: true, approvedAt: true, rejectedAt: true, subscriptionStatus: true } } },
       },
     },
   });
@@ -50,6 +50,11 @@ export async function createPhoneRequest(
   if (!owner.approvedAt || owner.rejectedAt) {
     console.warn(LOG_PREFIX, 'Org owner not approved', { orgId: org.id });
     return { ok: false, error: 'ORG_NOT_APPROVED' };
+  }
+
+  if (owner.subscriptionStatus === 'REQUIRES_REAUTHORIZATION' || owner.subscriptionStatus === 'CANCELED') {
+    console.warn(LOG_PREFIX, 'Org owner billing requires reauthorization', { orgId: org.id });
+    return { ok: false, error: 'BILLING_REAUTH_REQUIRED' };
   }
 
   cancelStaleJobs().catch((e) => console.error(LOG_PREFIX, 'cancelStaleJobs error:', e));
