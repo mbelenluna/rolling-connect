@@ -29,10 +29,15 @@ function twiml(xml: string) {
   });
 }
 
-function sayAndHangup(message: string) {
-  return twiml(
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(message)}</Say><Hangup/></Response>`
-  );
+/** Log exact TwiML Twilio receives, then return. Use for every response. */
+function twimlWithLog(xml: string, branch: string): NextResponse {
+  console.log('[twilio/incoming] EXACT_TWIML_RETURNED', { branch, fullXml: xml });
+  return twiml(xml);
+}
+
+function sayAndHangup(message: string, branch: string) {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(message)}</Say><Hangup/></Response>`;
+  return twimlWithLog(xml, branch);
 }
 
 function escapeXml(s: string): string {
@@ -57,7 +62,7 @@ export async function POST(req: NextRequest) {
     return await handleIncoming(req);
   } catch (err) {
     console.error('[twilio/voice] Unhandled error:', err);
-    return sayAndHangup('We are sorry, an error occurred. Please try again later. Goodbye.');
+    return sayAndHangup('We are sorry, an error occurred. Please try again later. Goodbye.', 'error');
   }
 }
 
@@ -65,7 +70,7 @@ async function handleIncoming(req: NextRequest) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!authToken) {
     console.error('[twilio/voice] TWILIO_AUTH_TOKEN not set');
-    return sayAndHangup('Service is not configured. Please try again later.');
+    return sayAndHangup('Service is not configured. Please try again later.', 'no_auth');
   }
 
   const body = await req.text();
@@ -105,7 +110,7 @@ async function handleIncoming(req: NextRequest) {
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=validate_client`);
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" input="dtmf"><Say voice="alice" language="en-US">Welcome to Rolling Connect. ${version}. Please enter your 6 digit client ID, followed by the pound key.</Say></Gather><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`;
     logVoiceResponse('incoming', { step: null, branch: 'greeting', twimlPreview: xml, twimlLength: xml.length });
-    return twiml(xml);
+    return twimlWithLog(xml, 'greeting');
   }
 
   if (step === 'validate_client') {
@@ -113,13 +118,12 @@ async function handleIncoming(req: NextRequest) {
     if (!clientId) {
       logVoiceResponse('incoming', { step, branch: 'validate_client_empty_digits' });
       const baseUrl = escapeXml(getWebhookBaseUrl());
-      return twiml(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your client ID. Please try again.</Say><Redirect method="POST">${baseUrl}</Redirect></Response>`
-      );
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your client ID. Please try again.</Say><Redirect method="POST">${baseUrl}</Redirect></Response>`;
+      return twimlWithLog(xml, 'validate_client_empty_digits');
     }
     if (clientId.length !== 6) {
       logVoiceResponse('incoming', { step, branch: 'validate_client_bad_length' });
-      return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
+      return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.', 'validate_client_bad_length');
     }
 
     const { prisma } = await import('@/lib/prisma');
@@ -128,51 +132,42 @@ async function handleIncoming(req: NextRequest) {
     });
     if (!org) {
       logVoiceResponse('incoming', { step, branch: 'validate_client_org_not_found' });
-      return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
+      return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.', 'validate_client_org_not_found');
     }
 
+    // DEBUG: Minimal inline flow (no redirect). Confirms production serves latest code and Gather works.
     const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const base = baseUrl.replace(/\/$/, '');
-
-    if (process.env.TWILIO_DEBUG_LANGUAGE === '1') {
-      // DEBUG: Minimal Gather to isolate whether Twilio Gather works
-      const debugActionUrl = escapeXml(`${base}/api/twilio/voice/debug-language`);
-      const debugXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" action="${debugActionUrl}" method="POST" input="dtmf"><Say voice="alice" language="en-US">This is the language test menu. Press 1 now.</Say></Gather><Say voice="alice" language="en-US">No input received.</Say><Hangup/></Response>`;
-      logVoiceResponse('incoming', { step, branch: 'validate_client_ok_debug_menu', twimlPreview: debugXml, twimlLength: debugXml.length });
-      return twiml(debugXml);
-    }
-
-    // Language menu: Gather posts ONLY when user enters a digit (no actionOnEmptyResult)
-    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`);
-    const langMenu = buildLanguageMenu();
-    const langXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="5" action="${actionUrl}" method="POST" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your language selection. Goodbye.</Say><Hangup/></Response>`;
-    logVoiceResponse('incoming', { step, branch: 'validate_client_ok_language_menu', twimlPreview: langXml, twimlLength: langXml.length });
-    return twiml(langXml);
+    const debugUrl = escapeXml(`${base}/api/twilio/voice/debug-language`);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="10" input="dtmf" method="POST" action="${debugUrl}"><Say voice="alice" language="en-US">This is RC language menu test version 3. Press 1 now.</Say></Gather><Say voice="alice" language="en-US">No input received.</Say><Hangup/></Response>`;
+    logVoiceResponse('incoming', { step, branch: 'validate_client_debug_flow', twimlPreview: xml });
+    return twimlWithLog(xml, 'validate_client_debug_flow');
   }
 
   if (step === 'create_request' && clientIdParam) {
     const digit = digits.trim().replace(/\D/g, '');
     if (!digit) {
       logVoiceResponse('incoming', { step, branch: 'create_request_empty_digits', digits });
-      return sayAndHangup('We did not receive your language selection. Goodbye.');
+      return sayAndHangup('We did not receive your language selection. Goodbye.', 'create_request_empty_digits');
     }
     const result = await createPhoneRequest(clientIdParam, digit);
 
     if (!result.ok) {
       logVoiceResponse('incoming', { step, branch: `create_request_error_${result.error}` });
       if (result.error === 'INVALID_CLIENT_ID') {
-        return sayAndHangup('Invalid client ID. Goodbye.');
+        return sayAndHangup('Invalid client ID. Goodbye.', 'create_request_invalid_client');
       }
       if (result.error === 'ORG_NOT_APPROVED' || result.error === 'NO_OWNER') {
-        return sayAndHangup('Your account is not set up for phone requests. Please contact your administrator. Goodbye.');
+        return sayAndHangup('Your account is not set up for phone requests. Please contact your administrator. Goodbye.', 'create_request_org_not_approved');
       }
-      return sayAndHangup('Invalid language selection. Goodbye.');
+      return sayAndHangup('Invalid language selection. Goodbye.', 'create_request_invalid_language');
     }
 
     if (result.interpretersMatched === 0) {
       logVoiceResponse('incoming', { step, branch: 'create_request_no_interpreters' });
       return sayAndHangup(
-        'Your interpretation request has been received. Unfortunately, no interpreters are available at this time. Please try again later or use our website. Goodbye.'
+        'Your interpretation request has been received. Unfortunately, no interpreters are available at this time. Please try again later or use our website. Goodbye.',
+        'create_request_no_interpreters'
       );
     }
 
@@ -183,11 +178,10 @@ async function handleIncoming(req: NextRequest) {
     const base = baseUrl.replace(/\/$/, '');
     const waitUrl = `${base}/api/twilio/voice/hold-message`;
     const statusCallback = `${base}/api/twilio/voice/conference-status`;
-    return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter. Please hold.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
-    );
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter. Please hold.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
+    return twimlWithLog(xml, 'create_request_ok_conference');
   }
 
   logVoiceResponse('incoming', { step, branch: 'fallback_unknown_step' });
-  return sayAndHangup('We could not process your request. Goodbye.');
+  return sayAndHangup('We could not process your request. Goodbye.', 'fallback_unknown_step');
 }

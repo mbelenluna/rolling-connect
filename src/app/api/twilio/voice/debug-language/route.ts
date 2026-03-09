@@ -6,7 +6,7 @@
  * If we receive Digits=1, say "You pressed 1". Otherwise "Invalid input".
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { logVoiceRequest, logVoiceResponse, getIvrVersion } from '@/lib/twilio-voice-log';
+import { logVoiceRequest, logVoiceResponse } from '@/lib/twilio-voice-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
   const params = Object.fromEntries(new URLSearchParams(body));
   const digits = params.Digits ?? '';
 
+  console.log('[twilio/debug-language] Digits received:', JSON.stringify(digits), 'rawParams:', JSON.stringify(params));
+
   logVoiceRequest('debug-language', {
     url: req.url,
     digits,
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
   const msg = digits === '1' ? 'You pressed 1.' : `Invalid input. You pressed ${digits || 'nothing'}.`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">${escapeXml(msg)}</Say><Hangup/></Response>`;
 
+  console.log('[twilio/debug-language] EXACT_TWIML_RETURNED', { fullXml: xml });
   logVoiceResponse('debug-language', { branch: digits ? 'digit_received' : 'no_digit', twimlPreview: xml });
   return twiml(xml);
 }
