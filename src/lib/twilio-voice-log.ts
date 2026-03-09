@@ -33,6 +33,7 @@ export function logVoiceResponse(route: string, data: {
   step?: string | null;
   branch?: string;
   digits?: string;
+  digit?: string;
   twimlPreview?: string;
   twimlLength?: number;
 }) {
