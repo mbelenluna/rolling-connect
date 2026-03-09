@@ -16,7 +16,7 @@ function twimlResponse() {
   <Redirect>${holdUrl}</Redirect>
 </Response>`;
   return new NextResponse(xml, {
-    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    headers: { 'Content-Type': 'text/xml; charset=utf-8' },
   });
 }
 

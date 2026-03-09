@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     if (!call) return new NextResponse('', { status: 200 });
 
-    if (event === 'participant-join') {
+    if (event === 'join') {
       if (participantLabel === 'interpreter') {
         await startBillableInterval(call.id);
         if (!call.startedAt) {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('', { status: 200 });
     }
 
-    if (event === 'participant-leave') {
+    if (event === 'leave') {
       if (participantLabel === 'interpreter') {
         await endBillableInterval(call.id);
         return new NextResponse('', { status: 200 });

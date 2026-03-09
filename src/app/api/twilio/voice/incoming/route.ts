@@ -116,30 +116,19 @@ async function handleIncoming(req: NextRequest) {
       return sayAndHangup('Invalid client ID. Please check your number and try again. Goodbye.');
     }
 
+    // Language menu: Gather posts to action URL ONLY when user enters a digit (no actionOnEmptyResult)
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientId)}`);
     const langMenu = buildLanguageMenu();
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" action="${actionUrl}" method="POST" timeout="30" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
-    );
-  }
-
-  if (step === 'language_menu' && clientIdParam) {
-    // Re-show language menu (e.g. after timeout)
-    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=create_request&clientId=${encodeURIComponent(clientIdParam)}`);
-    const langMenu = buildLanguageMenu();
-    return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" action="${actionUrl}" method="POST" timeout="30" actionOnEmptyResult="true" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" timeout="5" action="${actionUrl}" method="POST" input="dtmf"><Say voice="alice" language="en-US">${escapeXml(langMenu)}</Say></Gather><Say voice="alice" language="en-US">We did not receive your language selection. Goodbye.</Say><Hangup/></Response>`
     );
   }
 
   if (step === 'create_request' && clientIdParam) {
     const digit = digits.trim().replace(/\D/g, '');
     if (!digit) {
-      // Timeout or no digits — redirect back to language menu
-      const menuUrl = escapeXml(`${getWebhookBaseUrl()}?step=language_menu&clientId=${encodeURIComponent(clientIdParam)}`);
-      return twiml(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">We did not receive your language selection. Please try again.</Say><Redirect method="POST">${menuUrl}</Redirect></Response>`
-      );
+      // Should not reach here if Gather is correct (only POSTs when digit entered); fallback
+      return sayAndHangup('We did not receive your language selection. Goodbye.');
     }
     const result = await createPhoneRequest(clientIdParam, digit);
 
@@ -159,15 +148,14 @@ async function handleIncoming(req: NextRequest) {
       );
     }
 
-    // Put caller in Twilio Conference — they stay on the line and hear interpreter when one joins
+    // Connecting message first, then conference with hold music (waitUrl only used after caller joins conference)
     const conferenceName = `rolling-${result.jobId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
     const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const base = baseUrl.replace(/\/$/, '');
     const waitUrl = `${base}/api/twilio/voice/hold-message`;
     const statusCallback = `${base}/api/twilio/voice/conference-status`;
-    // endConferenceOnExit=true on caller: when client hangs up, conference ends for everyone
     return twiml(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Your request has been received. Please hold while we connect you to an interpreter.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="GET" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="participant-join,participant-leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter. Please hold.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`
     );
   }
 
