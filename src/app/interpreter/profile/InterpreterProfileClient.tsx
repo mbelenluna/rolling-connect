@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslatedLanguageName, getTranslatedSpecialtyName } from '@/lib/translations';
 
 type LanguagePair = { source: string; target: string };
 type Language = { code: string; name: string };
 type Specialty = { code: string; name: string };
 
 export default function InterpreterProfileClient() {
+  const { locale } = useLanguage();
   const [profile, setProfile] = useState<{
     languagePairs: LanguagePair[];
     specialties: string[];
@@ -123,7 +126,7 @@ export default function InterpreterProfileClient() {
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
               >
                 {languages.map((l) => (
-                  <option key={l.code} value={l.code}>{l.name}</option>
+                  <option key={l.code} value={l.code}>{getTranslatedLanguageName(locale, l.code, l.name)}</option>
                 ))}
               </select>
               <span className="py-2 text-slate-500">→</span>
@@ -133,7 +136,7 @@ export default function InterpreterProfileClient() {
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
               >
                 {languages.map((l) => (
-                  <option key={l.code} value={l.code}>{l.name}</option>
+                  <option key={l.code} value={l.code}>{getTranslatedLanguageName(locale, l.code, l.name)}</option>
                 ))}
               </select>
               <button
@@ -164,12 +167,12 @@ export default function InterpreterProfileClient() {
                 type="button"
                 onClick={() => toggleSpecialty(s.code)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                  editForm.specialties.includes(s.code)
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                editForm.specialties.includes(s.code)
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {s.name}
+                {getTranslatedSpecialtyName(locale, s.code, s.name)}
               </button>
             ))}
           </div>
