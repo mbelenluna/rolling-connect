@@ -190,9 +190,19 @@ export default function RequestPageClient() {
 
       if (data.status === 'no_match' || data.interpretersMatched === 0) {
         setStep('error');
-        setError(
-          'No interpreters available. Open /api/debug/match-status in your browser to see why each interpreter was excluded.'
-        );
+        let msg = 'No interpreters available right now.';
+        if (data.matchDebug) {
+          const { counts, topReasons } = data.matchDebug;
+          if (counts.totalInterpreters === 0) msg += ' No interpreters are registered.';
+          else if (counts.statusOnline === 0) msg += ' No interpreters are currently online. Ask them to set their status to Online on the interpreter dashboard.';
+          else if (counts.languageMatch === 0) msg += ' No interpreters have the requested language pair.';
+          else if (counts.specialtyMatch === 0) msg += ' No interpreters have the requested specialty.';
+          else if (topReasons?.length) msg += ` ${topReasons[0]}`;
+          else msg += ' Interpreters must be approved, online, and have matching language pairs and specialties.';
+        } else {
+          msg += ' Interpreters must be approved, set their status to Online on the interpreter dashboard, and have matching language pairs and specialties.';
+        }
+        setError(msg);
         return;
       }
 

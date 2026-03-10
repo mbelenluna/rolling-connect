@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { clientChargeCents, formatCents } from '@/lib/billing';
+import { clientChargeCents, formatCents } from '@/lib/billing-rates';
 import { jsPDF } from 'jspdf';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
@@ -61,9 +61,18 @@ export default function ClientHistoryClient() {
       params.set('endDate', endDate || startDate);
     }
     fetch(`/api/requests?${params}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok || !Array.isArray(data)) {
+          return [];
+        }
+        return data;
+      })
       .then(setRequests)
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setRequests([]);
+      })
       .finally(() => setLoading(false));
   }, [startDate, endDate]);
 

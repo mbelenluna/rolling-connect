@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
-import { CLIENT_PRICING_TABLE, formatCents } from '@/lib/billing';
+import { CLIENT_PRICING_TABLE, formatCents } from '@/lib/billing-rates';
 
 export default function PricingContent() {
   const { locale } = useLanguage();

@@ -105,11 +105,19 @@ async function main() {
     create: { email: 'admin@rolling-connect.com', passwordHash: hash, role: 'admin', name: 'Admin User' },
   });
 
-  // Client user + org
+  // Client user + org (approved, email confirmed, active subscription for demo)
   const clientUser = await prisma.user.upsert({
     where: { email: 'client@example.com' },
-    update: {},
-    create: { email: 'client@example.com', passwordHash: hash, role: 'client', name: 'Jane Client' },
+    update: { approvedAt: new Date(), emailConfirmedAt: new Date(), subscriptionStatus: 'ACTIVE' },
+    create: {
+      email: 'client@example.com',
+      passwordHash: hash,
+      role: 'client',
+      name: 'Jane Client',
+      approvedAt: new Date(),
+      emailConfirmedAt: new Date(),
+      subscriptionStatus: 'ACTIVE',
+    },
   });
   const org = await prisma.organization.upsert({
     where: { id: 'org-default-001' },
@@ -122,11 +130,11 @@ async function main() {
     create: { organizationId: org.id, userId: clientUser.id, role: 'owner' },
   });
 
-  // Interpreter users
+  // Interpreter users (approved so they can receive offers)
   const interp1 = await prisma.user.upsert({
     where: { email: 'interpreter1@example.com' },
-    update: {},
-    create: { email: 'interpreter1@example.com', passwordHash: hash, role: 'interpreter', name: 'Maria Interpreter' },
+    update: { approvedAt: new Date() },
+    create: { email: 'interpreter1@example.com', passwordHash: hash, role: 'interpreter', name: 'Maria Interpreter', approvedAt: new Date() },
   });
   await prisma.interpreterProfile.upsert({
     where: { userId: interp1.id },
@@ -149,8 +157,8 @@ async function main() {
 
   const interp2 = await prisma.user.upsert({
     where: { email: 'interpreter2@example.com' },
-    update: {},
-    create: { email: 'interpreter2@example.com', passwordHash: hash, role: 'interpreter', name: 'Carlos Interpreter' },
+    update: { approvedAt: new Date() },
+    create: { email: 'interpreter2@example.com', passwordHash: hash, role: 'interpreter', name: 'Carlos Interpreter', approvedAt: new Date() },
   });
   await prisma.interpreterProfile.upsert({
     where: { userId: interp2.id },

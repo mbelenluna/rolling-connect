@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { interpreterPayCents, formatCents } from '@/lib/billing';
+import { interpreterPayCents, formatCents } from '@/lib/billing-rates';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 

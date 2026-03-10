@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { findEligibleInterpreters } from '@/lib/matching';
+import { findEligibleInterpreters, findEligibleInterpretersWithDebug } from '@/lib/matching';
 import { cancelStaleJobs } from '@/lib/cancel-job';
 import { z } from 'zod';
 
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
 
     cancelStaleJobs().catch((e) => console.error(LOG_PREFIX, 'cancelStaleJobs error:', e));
 
-    const interpreters = await findEligibleInterpreters({
+    const matchParams = {
       sourceLanguage: data.sourceLanguage,
       targetLanguage: data.targetLanguage,
       specialty: data.specialty,
@@ -154,7 +154,8 @@ export async function POST(req: Request) {
       securityClearance: data.securityClearance,
       genderPreference: data.genderPreference,
       scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
-    });
+    };
+    const interpreters = await findEligibleInterpreters(matchParams);
 
     console.log(LOG_PREFIX, 'Matching result', { requestId: request.id, interpretersFound: interpreters.length, interpreterIds: interpreters.map((i) => i.id) });
 
@@ -186,6 +187,26 @@ export async function POST(req: Request) {
     const responseStatus = interpreters.length > 0 ? 'offered' : 'no_match';
     console.log(LOG_PREFIX, 'Success', { requestId: request.id, jobId: job.id, status: responseStatus, interpretersMatched: interpreters.length });
 
+    let matchDebug: { counts: { totalInterpreters: number; statusOnline: number; languageMatch: number; specialtyMatch: number; finalEligible: number }; topReasons?: string[] } | undefined;
+    if (interpreters.length === 0) {
+      try {
+        const { debug } = await findEligibleInterpretersWithDebug(matchParams);
+        const topReasons = [...new Set(debug.filterReasons.map((r) => r.reason))].slice(0, 5);
+        matchDebug = {
+          counts: {
+            totalInterpreters: debug.totalInterpreters,
+            statusOnline: debug.statusOnline,
+            languageMatch: debug.languageMatch,
+            specialtyMatch: debug.specialtyMatch,
+            finalEligible: debug.finalEligible,
+          },
+          topReasons,
+        };
+      } catch (e) {
+        console.warn(LOG_PREFIX, 'Match debug failed', e);
+      }
+    }
+
     return NextResponse.json({
       id: request.id,
       jobId: job.id,
@@ -193,6 +214,7 @@ export async function POST(req: Request) {
       interpretersMatched: interpreters.length,
       createdAt: request.createdAt,
       estimatedMatchTime: OFFER_TIMEOUT_SEC,
+      ...(matchDebug && { matchDebug }),
     });
   } catch (e) {
     if (e instanceof z.ZodError) {

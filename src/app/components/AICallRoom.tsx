@@ -17,6 +17,26 @@ function formatDuration(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Run fn when the tab is visible. Browsers block WebSockets in background tabs - guests often open invite links in new tabs. */
+function runWhenVisible(fn: () => void): () => void {
+  if (typeof document === 'undefined') {
+    fn();
+    return () => {};
+  }
+  if (document.visibilityState === 'visible') {
+    fn();
+    return () => {};
+  }
+  const handler = () => {
+    if (document.visibilityState === 'visible') {
+      document.removeEventListener('visibilitychange', handler);
+      fn();
+    }
+  };
+  document.addEventListener('visibilitychange', handler);
+  return () => document.removeEventListener('visibilitychange', handler);
+}
+
 /** Infer default sourceLang from browser/UI language (returns Azure format) */
 function inferDefaultSourceLang(sourceLanguage: string, targetLanguage: string): string {
   if (typeof navigator === 'undefined') return toAzureLanguage(sourceLanguage);
@@ -229,9 +249,11 @@ export default function AICallRoom({
       if (callFrame.localAudio() !== false) {
         // Delay so Daily/browser can establish mic; guests may need longer for Daily tracks to be ready
         const delayMs = inviteToken ? 1200 : 500;
-        setTimeout(() => {
+        const doStart = () => {
           if (mounted && callFrame.localAudio() !== false) startRecognizer();
-        }, delayMs);
+        };
+        visibilityCleanup?.();
+        visibilityCleanup = runWhenVisible(() => setTimeout(doStart, delayMs));
       } else {
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
       }
@@ -277,11 +299,14 @@ export default function AICallRoom({
         // Unmuted: delay before starting so rapid mute/unmute/mute doesn't leave recognizer running
         setTranslationPaused(false);
         const delayMs = 300;
-        setTimeout(() => {
-          if (!mounted || !callRef.current) return;
-          if (callFrame.localAudio() !== true || translationPausedRef.current) return;
-          startRecognizer();
-        }, delayMs);
+        visibilityCleanup?.();
+        visibilityCleanup = runWhenVisible(() =>
+          setTimeout(() => {
+            if (!mounted || !callRef.current) return;
+            if (callFrame.localAudio() !== true || translationPausedRef.current) return;
+            startRecognizer();
+          }, delayMs)
+        );
       }
     });
 
@@ -315,6 +340,7 @@ export default function AICallRoom({
 
     let mounted = true;
     let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+    let visibilityCleanup: (() => void) | null = null;
 
     const azureTokenUrl = inviteToken && callId
       ? `/api/calls/${callId}/guest-azure-token?inviteToken=${encodeURIComponent(inviteToken)}`
@@ -421,10 +447,13 @@ export default function AICallRoom({
             stopMicStream();
           }
           console.warn(`Azure Speech ${reason}, restarting in 1s...`);
-          setTimeout(() => {
-            if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
-            startRecognizer();
-          }, 1000);
+          visibilityCleanup?.();
+          visibilityCleanup = runWhenVisible(() =>
+            setTimeout(() => {
+              if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
+              startRecognizer();
+            }, 1000)
+          );
         };
 
         recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
@@ -467,6 +496,7 @@ export default function AICallRoom({
     return () => {
       hasJoinedCallRef.current = false;
       mounted = false;
+      visibilityCleanup?.();
       clearInterval(mutePollInterval);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
       const r = recognizerRef.current;
@@ -538,7 +568,7 @@ export default function AICallRoom({
     if (callRef.current?.localAudio() === false) return;
 
     // Reuse startRecognizer so it gets canceled/sessionStopped handlers and token refresh
-    setTimeout(() => startRecognizerRef.current(), 100);
+    runWhenVisible(() => setTimeout(() => startRecognizerRef.current(), 100));
   }, [mySourceLang, azureReady, hasJoined, sourceLanguage, targetLanguage, inviteToken, callId, stopMicStream]);
 
   useEffect(() => {
@@ -618,7 +648,7 @@ export default function AICallRoom({
         setInterimOut('');
       } else {
         // Resuming: start recognizer (participant-updated may not fire immediately)
-        setTimeout(() => startRecognizerRef.current(), 150);
+        runWhenVisible(() => setTimeout(() => startRecognizerRef.current(), 150));
       }
     }
   };
@@ -760,6 +790,9 @@ export default function AICallRoom({
           </button>
         </div>
         <p className="text-sm text-slate-500 mb-4">{t('joinCallLanguageToggleHint')}</p>
+        {inviteToken && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">{t('joinCallTabHint')}</p>
+        )}
         <button type="button" onClick={handleJoin} className="w-full py-3 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700">
           {t('joinCallButton')}
         </button>

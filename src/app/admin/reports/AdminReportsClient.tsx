@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { formatCents } from '@/lib/billing';
+import { formatCents } from '@/lib/billing-rates';
 import { jsPDF } from 'jspdf';
 
 type CallRow = {
