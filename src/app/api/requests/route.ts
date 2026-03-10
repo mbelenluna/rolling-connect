@@ -191,7 +191,7 @@ export async function POST(req: Request) {
     if (interpreters.length === 0) {
       try {
         const { debug } = await findEligibleInterpretersWithDebug(matchParams);
-        const topReasons = [...new Set(debug.filterReasons.map((r) => r.reason))].slice(0, 5);
+        const topReasons = Array.from(new Set(debug.filterReasons.map((r) => r.reason))).slice(0, 5);
         matchDebug = {
           counts: {
             totalInterpreters: debug.totalInterpreters,
