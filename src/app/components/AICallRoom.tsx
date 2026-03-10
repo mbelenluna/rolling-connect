@@ -292,7 +292,8 @@ export default function AICallRoom({
       const localId = callFrame.participants().local?.session_id;
       if (localId && (e.fromId === localId || e.data.fromSessionId === localId)) return; // Ignore our own messages
       if (e.data.type === 'translation' && e.data.translation) {
-        setAccumulatedIn((prev) => (prev ? prev + ' ' + e.data!.translation : e.data!.translation));
+        const t = e.data.translation;
+        setAccumulatedIn((prev) => (prev ? prev + ' ' + t : t));
       }
     });
     callFrame.on('left-meeting', () => {
