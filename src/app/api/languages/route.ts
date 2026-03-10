@@ -47,5 +47,7 @@ export async function GET() {
     if (l.code === 'yue') return { ...l, name: 'Chinese Cantonese' };
     return l;
   });
-  return NextResponse.json(normalized);
+  // Include English first for source language (default: "I speak English")
+  const englishEntry = { id: 'fallback-en', code: 'en', name: 'English', active: true };
+  return NextResponse.json([englishEntry, ...normalized]);
 }
