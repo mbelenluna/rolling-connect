@@ -109,10 +109,16 @@ export default function AICallRoom({
 
   const recognizerRef = useRef<{ stopContinuousRecognitionAsync?: () => unknown; close?: () => void } | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const usedDailyTrackRef = useRef(false);
 
   const stopMicStream = useCallback(() => {
-    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    const stream = micStreamRef.current;
     micStreamRef.current = null;
+    // Don't stop tracks we borrowed from Daily (would mute the call)
+    if (stream && !usedDailyTrackRef.current) {
+      stream.getTracks().forEach((t) => t.stop());
+    }
+    usedDailyTrackRef.current = false;
   }, []);
 
   const endCallIfNotByUser = useCallback(() => {
@@ -221,10 +227,11 @@ export default function AICallRoom({
       callFrame.setUserData({ sourceLang: mySourceLangRef.current });
       // Only start recognizer if mic is not muted
       if (callFrame.localAudio() !== false) {
-        // Delay ~500ms so Daily/browser can fully establish mic before we grab it
+        // Delay so Daily/browser can establish mic; guests may need longer for Daily tracks to be ready
+        const delayMs = inviteToken ? 1200 : 500;
         setTimeout(() => {
           if (mounted && callFrame.localAudio() !== false) startRecognizer();
-        }, 500);
+        }, delayMs);
       } else {
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
       }
@@ -287,10 +294,11 @@ export default function AICallRoom({
       }
     }, 1500);
 
-    callFrame.on('app-message', (e: { data?: { type?: string; translation?: string; fromSessionId?: string }; fromId?: string }) => {
+    callFrame.on('app-message', (e: { data?: { type?: string; translation?: string; fromSessionId?: string }; fromId?: string; participant?: { session_id?: string } }) => {
       if (!mounted || !e?.data) return;
       const localId = callFrame.participants().local?.session_id;
-      if (localId && (e.fromId === localId || e.data.fromSessionId === localId)) return; // Ignore our own messages
+      const senderId = e.fromId ?? e.participant?.session_id ?? e.data.fromSessionId;
+      if (localId && senderId === localId) return; // Ignore our own messages
       if (e.data.type === 'translation' && e.data.translation) {
         const t = e.data.translation;
         setAccumulatedIn((prev) => (prev ? prev + ' ' + t : t));
@@ -329,9 +337,22 @@ export default function AICallRoom({
         const source = mySourceLangRef.current;
         const target = source === sourceAzure ? targetAzure : sourceAzure;
 
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
+        // Prefer Daily's local audio track (avoids double mic prompt for guests); fallback to getUserMedia
+        let micStream: MediaStream;
+        const getDailyTrack = () => {
+          const local = callFrame.participants().local as { tracks?: { audio?: { persistentTrack?: MediaStreamTrack; track?: MediaStreamTrack } } } | undefined;
+          return local?.tracks?.audio?.persistentTrack ?? local?.tracks?.audio?.track;
+        };
+        const track = getDailyTrack();
+        if (track && track.enabled) {
+          micStream = new MediaStream([track]);
+          usedDailyTrackRef.current = true;
+        } else {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+          });
+          usedDailyTrackRef.current = false;
+        }
         micStreamRef.current = micStream;
         const audioConfig = sdk.AudioConfig.fromStreamInput(micStream);
 
