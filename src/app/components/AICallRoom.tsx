@@ -68,8 +68,9 @@ export default function AICallRoom({
   const callRef = useRef<ReturnType<typeof Daily.createFrame> | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [translationOut, setTranslationOut] = useState(''); // My speech (when I speak)
-  const [translationIn, setTranslationIn] = useState('');   // Other's speech (when they speak, received via app message)
+  const [accumulatedOut, setAccumulatedOut] = useState(''); // My speech: finalized segments
+  const [interimOut, setInterimOut] = useState('');          // My speech: current partial (recognizing)
+  const [accumulatedIn, setAccumulatedIn] = useState('');   // Other's speech: accumulated
   const [azureError, setAzureError] = useState<string | null>(null);
   const [azureReady, setAzureReady] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -249,7 +250,8 @@ export default function AICallRoom({
           stopMicStream();
         }
         if (mounted) {
-          setTranslationOut('');
+          setAccumulatedOut('');
+          setInterimOut('');
           setTranslationPaused(true);
         }
       }
@@ -290,7 +292,7 @@ export default function AICallRoom({
       const localId = callFrame.participants().local?.session_id;
       if (localId && (e.fromId === localId || e.data.fromSessionId === localId)) return; // Ignore our own messages
       if (e.data.type === 'translation' && e.data.translation) {
-        setTranslationIn(e.data.translation);
+        setAccumulatedIn((prev) => (prev ? prev + ' ' + e.data!.translation : e.data!.translation));
       }
     });
     callFrame.on('left-meeting', () => {
@@ -353,23 +355,28 @@ export default function AICallRoom({
           return null;
         };
 
-        const broadcastTranslation = (t: string) => {
+        const broadcastTranslation = (t: string, isFinal: boolean) => {
           if (!t) return;
-          setTranslationOut(t);
-          try {
-            const localId = callFrame.participants().local?.session_id;
-            callFrame.sendAppMessage({ type: 'translation', translation: t, fromSessionId: localId }, '*');
-          } catch {}
+          if (isFinal) {
+            setAccumulatedOut((prev) => (prev ? prev + ' ' + t : t));
+            setInterimOut('');
+            try {
+              const localId = callFrame.participants().local?.session_id;
+              callFrame.sendAppMessage({ type: 'translation', translation: t, fromSessionId: localId }, '*');
+            } catch {}
+          } else {
+            setInterimOut(t);
+          }
         };
         recognizer.recognizing = (_s: unknown, e: TranslationRecognitionEventArgs) => {
           if (!mounted || !isValid(e.result)) return;
           const t = getTranslation(e.result);
-          if (t) broadcastTranslation(t);
+          if (t) broadcastTranslation(t, false);
         };
         recognizer.recognized = (_s: unknown, e: TranslationRecognitionEventArgs) => {
           if (!mounted || !isValid(e.result)) return;
           const t = getTranslation(e.result);
-          if (t) broadcastTranslation(t);
+          if (t) broadcastTranslation(t, true);
         };
 
         const scheduleRestart = (reason: string) => {
@@ -490,7 +497,8 @@ export default function AICallRoom({
         stopMicStream();
       }
     }
-    setTranslationOut('');
+    setAccumulatedOut('');
+    setInterimOut('');
     callRef.current?.setUserData({ sourceLang: mySourceLang });
 
     // Don't start recognizer if user is muted (participant-updated will start when they unmute)
@@ -573,7 +581,8 @@ export default function AICallRoom({
             stopMicStream();
           }
         }
-        setTranslationOut('');
+        setAccumulatedOut('');
+        setInterimOut('');
       } else {
         // Resuming: start recognizer (participant-updated may not fire immediately)
         setTimeout(() => startRecognizerRef.current(), 150);
@@ -836,11 +845,11 @@ export default function AICallRoom({
                   {t('youSpeak')} ({mySourceLabel} → {otherLangLabel})
                 </h2>
                 {azureReady ? (
-                  <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200">
+                  <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
                     {translationPaused ? (
                       <p className="text-amber-700 text-sm italic">{t('mutedMessage')}</p>
-                    ) : translationOut ? (
-                      <p className="text-slate-800">{translationOut}</p>
+                    ) : (accumulatedOut || interimOut) ? (
+                      <p className="text-slate-800 whitespace-pre-wrap break-words">{accumulatedOut}{interimOut ? (accumulatedOut ? ' ' : '') + interimOut : ''}</p>
                     ) : (
                       <p className="text-slate-500 text-sm italic">{t('speakAndTranslate')}</p>
                     )}
@@ -853,9 +862,9 @@ export default function AICallRoom({
                 <h2 className="text-sm font-semibold text-brand-900 mb-2">
                   {t('otherPartySpeaks')} ({otherLangLabel} → {mySourceLabel})
                 </h2>
-                <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200">
-                  {translationIn ? (
-                    <p className="text-slate-800">{translationIn}</p>
+                <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
+                  {accumulatedIn ? (
+                    <p className="text-slate-800 whitespace-pre-wrap break-words">{accumulatedIn}</p>
                   ) : (
                     <p className="text-slate-500 text-sm italic">{t('whenOtherSpeaks')}</p>
                   )}
