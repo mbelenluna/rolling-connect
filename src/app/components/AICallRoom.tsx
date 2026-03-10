@@ -429,6 +429,17 @@ export default function AICallRoom({
 
         recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
           console.warn('Azure Speech canceled:', e.reason, e.errorDetails);
+          const details = String(e.errorDetails ?? e.reason ?? '').toLowerCase();
+          const isConnectionError = details.includes('1006') || details.includes('unable to contact') || details.includes('connection') || details.includes('websocket');
+          if (isConnectionError && mounted) {
+            recognizerRef.current = null;
+            try {
+              recognizer.close?.();
+            } catch {}
+            stopMicStream();
+            setAzureError(t('azureConnectionError'));
+            return;
+          }
           scheduleRestart(`canceled (${e.errorDetails || e.reason})`);
         };
         recognizer.sessionStopped = () => {
