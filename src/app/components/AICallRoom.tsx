@@ -292,19 +292,34 @@ export default function AICallRoom({
     let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
     let lastRestartAt = 0;
     const MIN_RESTART_INTERVAL_MS = 15000;
+    // In-flight guard: prevents concurrent startRecognizer calls from both passing the
+    // `recognizerRef.current` null-check during the async gap (token fetch + getUserMedia).
+    // Set synchronously before the first await; cleared in the finally block of every exit path.
+    let recognizerStarting = false;
 
     const azureTokenUrl = inviteToken && callId
       ? `/api/calls/${callId}/guest-azure-token?inviteToken=${encodeURIComponent(inviteToken)}`
       : '/api/azure-speech-token';
 
     async function startRecognizer() {
-      console.log('[AzureRecognizer] startRecognizer_called', { role, mounted, translationPaused: translationPausedRef.current, hasExistingRecognizer: !!recognizerRef.current });
+      console.log('[AzureRecognizer] startRecognizer_called', { role, mounted, translationPaused: translationPausedRef.current, hasExistingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
       if (!mounted || translationPausedRef.current) return;
       const r = recognizerRef.current;
       if (r) return; // Already running
+      // In-flight guard: multiple participant-updated events within the async window
+      // (~200-400ms for token fetch + getUserMedia) would each pass the `if (r)` check
+      // above while recognizerRef.current is still null, creating orphaned recognizers.
+      // This flag is set synchronously before the first await and cleared in finally.
+      if (recognizerStarting) {
+        console.log('[AzureRecognizer] startRecognizer_blocked_inflight', { role });
+        return;
+      }
+      recognizerStarting = true;
       const instId = ++recognizerInstanceCount;
       log(role, 'recognizer_creating', { instId, activeCount: recognizerInstanceCount });
       console.log('[AzureRecognizer] token_fetch', { role, azureTokenUrl: azureTokenUrl.slice(0, 80) + '...' });
+      // Tracks a partially-created recognizer so catch can close it if startContinuousRecognitionAsync throws.
+      let localRecognizer: { stopContinuousRecognitionAsync?: () => unknown; close?: () => void } | null = null;
       try {
         const [sdk, tokenRes] = await Promise.all([
           import('microsoft-cognitiveservices-speech-sdk'),
@@ -335,8 +350,13 @@ export default function AICallRoom({
         config.addTargetLanguage(toTranslationTarget(target));
 
         const recognizer = new sdk.TranslationRecognizer(config, audioConfig);
+        localRecognizer = recognizer; // track so catch can close it if start fails
         log(role, 'recognizer_created', { instId });
         recognizerRef.current = recognizer;
+
+        // Per-recognizer flag: the canceled handler sets this true for fatal errors (1006/quota).
+        // sessionStopped checks it so it cannot schedule a restart that canceled already prevented.
+        let fatalErrorOccurred = false;
 
         const validReasons = [sdk.ResultReason.TranslatingSpeech, sdk.ResultReason.TranslatedSpeech];
         const isValid = (r: { reason?: number }) => r.reason != null && validReasons.includes(r.reason);
@@ -413,6 +433,14 @@ export default function AICallRoom({
           console.warn(`Azure Speech ${reason}, restarting in 1s...`);
           setTimeout(() => {
             if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
+            // If canceled already handled a fatal connection/quota error, do not restart.
+            // This closes the race where sessionStopped fires before canceled and schedules
+            // a restart that canceled would have blocked.
+            if (fatalErrorOccurred) {
+              log(role, 'restart_blocked_fatal', { instId, reason });
+              console.log('[AzureRecognizer] restart_blocked_fatal', { role, reason });
+              return;
+            }
             startRecognizer();
           }, 1000);
         };
@@ -423,6 +451,9 @@ export default function AICallRoom({
           const details = String(e.errorDetails ?? e.reason ?? '').toLowerCase();
           const isQuotaOrConnection = details.includes('1006') || details.includes('quota') || details.includes('unable to contact');
           if (isQuotaOrConnection && mounted) {
+            // Mark fatal FIRST so that sessionStopped (which may fire after this in any order)
+            // will see the flag and skip its scheduleRestart call.
+            fatalErrorOccurred = true;
             recognizerRef.current = null;
             try { recognizer.close?.(); } catch {}
             stopMicStream();
@@ -432,10 +463,18 @@ export default function AICallRoom({
           scheduleRestart(`canceled (${e.errorDetails || e.reason})`);
         };
         recognizer.sessionStopped = () => {
+          // If canceled already handled a fatal connection/quota error, do not attempt a restart.
+          // This covers the race where sessionStopped fires before canceled.
+          if (fatalErrorOccurred) {
+            log(role, 'sessionStopped_skipped_fatal', { instId });
+            console.log('[AzureRecognizer] sessionStopped_skipped_fatal', { role, instId });
+            return;
+          }
           scheduleRestart('session stopped');
         };
 
         await recognizer.startContinuousRecognitionAsync();
+        localRecognizer = null; // Recognizer is now active — cleanup is the ref's responsibility
         log(role, 'recognizer_started', { instId });
         if (mounted) setAzureReady(true);
 
@@ -447,7 +486,18 @@ export default function AICallRoom({
         }, 8 * 60 * 1000);
       } catch (e) {
         console.error('Azure Speech init error:', e);
+        // If the recognizer was created but startContinuousRecognitionAsync threw, close it
+        // to prevent it from becoming an orphan that holds an Azure quota slot.
+        if (localRecognizer) {
+          if (recognizerRef.current === localRecognizer) recognizerRef.current = null;
+          try { localRecognizer.close?.(); } catch {}
+          stopMicStream();
+        }
         if (mounted) setAzureError(e instanceof Error ? e.message : 'Failed to start AI translation');
+      } finally {
+        // Always clear the in-flight flag so future legitimate restarts (e.g. after token
+        // refresh or unmute) are not permanently blocked.
+        recognizerStarting = false;
       }
     }
     startRecognizerRef.current = startRecognizer;
