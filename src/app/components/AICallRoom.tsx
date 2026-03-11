@@ -171,7 +171,8 @@ export default function AICallRoom({
   useEffect(() => {
     const userId = (session?.user as { id?: string })?.id;
     if (!userId || !tokenUrl || dailyError) return;
-    const socket = io({ path: '/api/socketio' });
+    // Socket.IO only exists when using custom server (dev). In production, avoid 404 spam.
+    const socket = io({ path: '/api/socketio', reconnection: false });
     socket.on('connect', () => socket.emit('auth', { userId, role: 'client' }));
     socket.on('call_ended', () => {
       if (containerRef.current) containerRef.current.style.display = 'none';
@@ -250,6 +251,12 @@ export default function AICallRoom({
         // Delay so Daily/browser can establish mic; guests may need longer for Daily tracks to be ready
         const delayMs = inviteToken ? 1200 : 500;
         const doStart = () => {
+          // Browsers block WebSockets in background tabs - only start when visible (avoids Azure 1006 for guests)
+          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+            visibilityCleanup?.();
+            visibilityCleanup = runWhenVisible(doStart);
+            return;
+          }
           if (mounted && callFrame.localAudio() !== false) startRecognizer();
         };
         visibilityCleanup?.();
@@ -299,14 +306,18 @@ export default function AICallRoom({
         // Unmuted: delay before starting so rapid mute/unmute/mute doesn't leave recognizer running
         setTranslationPaused(false);
         const delayMs = 300;
+        const doStartUnmute = () => {
+          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+            visibilityCleanup?.();
+            visibilityCleanup = runWhenVisible(doStartUnmute);
+            return;
+          }
+          if (!mounted || !callRef.current) return;
+          if (callFrame.localAudio() !== true || translationPausedRef.current) return;
+          startRecognizer();
+        };
         visibilityCleanup?.();
-        visibilityCleanup = runWhenVisible(() =>
-          setTimeout(() => {
-            if (!mounted || !callRef.current) return;
-            if (callFrame.localAudio() !== true || translationPausedRef.current) return;
-            startRecognizer();
-          }, delayMs)
-        );
+        visibilityCleanup = runWhenVisible(() => setTimeout(doStartUnmute, delayMs));
       }
     });
 
@@ -447,13 +458,17 @@ export default function AICallRoom({
             stopMicStream();
           }
           console.warn(`Azure Speech ${reason}, restarting in 1s...`);
+          const doRestart = () => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+              visibilityCleanup?.();
+              visibilityCleanup = runWhenVisible(doRestart);
+              return;
+            }
+            if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
+            startRecognizer();
+          };
           visibilityCleanup?.();
-          visibilityCleanup = runWhenVisible(() =>
-            setTimeout(() => {
-              if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
-              startRecognizer();
-            }, 1000)
-          );
+          visibilityCleanup = runWhenVisible(() => setTimeout(doRestart, 1000));
         };
 
         recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
