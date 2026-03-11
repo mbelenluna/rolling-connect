@@ -26,6 +26,8 @@ async function ensureRoomExists(roomName: string): Promise<{ ok: boolean; error?
         privacy: 'public',
         properties: {
           exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+          start_audio_off: true,
+          start_video_off: true,
         },
       }),
     });
