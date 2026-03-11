@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import Daily from '@daily-co/daily-js';
-import { io } from 'socket.io-client';
 import { toAzureLanguage, getLanguageDisplayName, toTranslationTarget, getTranslationLookupKeys } from '@/lib/azure-languages';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
@@ -167,45 +166,6 @@ export default function AICallRoom({
       navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
     }
   }, []);
-
-  useEffect(() => {
-    const userId = (session?.user as { id?: string })?.id;
-    if (!userId || !tokenUrl || dailyError) return;
-    // Socket.IO only exists when using custom server (dev). In production, avoid 404 spam.
-    const socket = io({ path: '/api/socketio', reconnection: false });
-    socket.on('connect', () => socket.emit('auth', { userId, role: 'client' }));
-    socket.on('call_ended', () => {
-      if (containerRef.current) containerRef.current.style.display = 'none';
-      const r = recognizerRef.current;
-      recognizerRef.current = null;
-      if (r) {
-        try {
-          const p = r.stopContinuousRecognitionAsync?.();
-          if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-            (p as Promise<void>).catch(() => {}).finally(() => {
-              r.close?.();
-              stopMicStream();
-            });
-          } else {
-            r.close?.();
-            stopMicStream();
-          }
-        } catch {
-          stopMicStream();
-        }
-      }
-      if (callRef.current) {
-        try {
-          callRef.current.destroy();
-        } catch {}
-        callRef.current = null;
-      }
-      router.replace(summaryHref);
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [session?.user, tokenUrl, dailyError, summaryHref, router, stopMicStream]);
 
   // Daily call frame + Azure recognizer (single recognizer with explicit sourceLang)
   useEffect(() => {
@@ -374,21 +334,30 @@ export default function AICallRoom({
         const source = mySourceLangRef.current;
         const target = source === sourceAzure ? targetAzure : sourceAzure;
 
-        // Prefer Daily's local audio track (avoids double mic prompt for guests); fallback to getUserMedia
+        // Host: use Daily's local audio track (avoids double mic prompt).
+        // Guest: always use getUserMedia - Daily's track can transition/reconfigure when guest speaks,
+        // causing Azure to disconnect (1006) and killing translation on both ends.
         let micStream: MediaStream;
-        const getDailyTrack = () => {
-          const local = callFrame.participants().local as { tracks?: { audio?: { persistentTrack?: MediaStreamTrack; track?: MediaStreamTrack } } } | undefined;
-          return local?.tracks?.audio?.persistentTrack ?? local?.tracks?.audio?.track;
-        };
-        const track = getDailyTrack();
-        if (track && track.enabled) {
-          micStream = new MediaStream([track]);
-          usedDailyTrackRef.current = true;
-        } else {
+        if (inviteToken) {
           micStream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true },
           });
           usedDailyTrackRef.current = false;
+        } else {
+          const getDailyTrack = () => {
+            const local = callFrame.participants().local as { tracks?: { audio?: { persistentTrack?: MediaStreamTrack; track?: MediaStreamTrack } } } | undefined;
+            return local?.tracks?.audio?.persistentTrack ?? local?.tracks?.audio?.track;
+          };
+          const track = getDailyTrack();
+          if (track && track.enabled) {
+            micStream = new MediaStream([track]);
+            usedDailyTrackRef.current = true;
+          } else {
+            micStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+            });
+            usedDailyTrackRef.current = false;
+          }
         }
         micStreamRef.current = micStream;
         const audioConfig = sdk.AudioConfig.fromStreamInput(micStream);
