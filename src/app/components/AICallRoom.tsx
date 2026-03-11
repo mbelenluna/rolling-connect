@@ -10,10 +10,17 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 import type { TranslationRecognitionEventArgs } from 'microsoft-cognitiveservices-speech-sdk';
 
+const AZURE_RECOGNIZER_DEBUG = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function logRecognizer(event: string, detail: Record<string, unknown>) {
+  if (!AZURE_RECOGNIZER_DEBUG) return;
+  console.log('[AzureRecognizer]', { event, time: Date.now(), ...detail });
 }
 
 /** Run fn when the tab is visible. Browsers block WebSockets in background tabs - guests often open invite links in new tabs. */
@@ -169,6 +176,7 @@ export default function AICallRoom({
 
   // Daily call frame + Azure recognizer (single recognizer with explicit sourceLang)
   useEffect(() => {
+    logRecognizer('effect_run', { hasJoined, hasTokenUrl: !!tokenUrl, hasDailyError: !!dailyError });
     if (!tokenUrl || dailyError || !hasJoined || !dailyContainerRef.current) return;
 
     const container = dailyContainerRef.current;
@@ -201,9 +209,12 @@ export default function AICallRoom({
     };
 
     const joinedAtRef = { current: 0 };
+    const participantIdRef = { current: '' };
     callFrame.on('joined-meeting', () => {
       hasJoinedCallRef.current = true;
       joinedAtRef.current = Date.now();
+      participantIdRef.current = callFrame.participants().local?.session_id ?? 'unknown';
+      logRecognizer('call_state_updated', { participantId: participantIdRef.current, state: 'joined-meeting' });
       checkAndStartTimer();
       callFrame.setUserData({ sourceLang: mySourceLangRef.current });
       // Only start recognizer if mic is not muted
@@ -225,10 +236,17 @@ export default function AICallRoom({
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
       }
     });
-    callFrame.on('participant-joined', checkAndStartTimer);
-    const stopRecognizerOnMute = () => {
+    callFrame.on('participant-joined', () => {
+      if (!participantIdRef.current) participantIdRef.current = callFrame.participants().local?.session_id ?? 'unknown';
+      const participants = callFrame.participants();
+      const ids = Object.keys(participants).filter((k) => k !== 'local');
+      logRecognizer('participant_joined', { participantId: participantIdRef.current, remoteCount: ids.length });
+      checkAndStartTimer();
+    });
+    const stopRecognizerOnMute = (source: string) => {
       const r = recognizerRef.current;
       if (r) {
+        logRecognizer('recognizer_stopped', { participantId: participantIdRef.current, source, recognizerId: (r as { _impl?: { id?: string } })._impl?.id ?? 'n/a' });
         recognizerRef.current = null;
         try {
           const p = r.stopContinuousRecognitionAsync?.();
@@ -256,12 +274,13 @@ export default function AICallRoom({
     callFrame.on('participant-updated', (e: { participant?: { local?: boolean; session_id?: string } }) => {
       const local = callFrame.participants().local;
       const isLocal = e?.participant?.local || (local && e?.participant?.session_id === local.session_id);
-      if (!isLocal) return;
       const audioOn = callFrame.localAudio();
-      if (audioOn !== true) {
-        // Muted: stop recognizer (treat anything other than explicit true as muted)
+      logRecognizer('participant_updated', { participantId: participantIdRef.current, isLocal, audioOn, audioOnType: typeof audioOn });
+      if (!isLocal) return;
+      // Only stop when EXPLICITLY muted (audioOn === false). Daily can return undefined during participant sync when invitee joins.
+      if (audioOn === false) {
         if (Date.now() - joinedAtRef.current < 1000) return; // Brief grace for initial join
-        stopRecognizerOnMute();
+        stopRecognizerOnMute('participant-updated');
       } else {
         // Unmuted: delay before starting so rapid mute/unmute/mute doesn't leave recognizer running
         setTranslationPaused(false);
@@ -284,9 +303,10 @@ export default function AICallRoom({
     // Poll for mute state as fallback (participant-updated may not fire reliably in all cases)
     const mutePollInterval = setInterval(() => {
       if (!mounted || !callFrame.participants().local) return;
-      if (callFrame.localAudio() !== true && recognizerRef.current) {
+      const audioOn = callFrame.localAudio();
+      if (audioOn === false && recognizerRef.current) {
         if (Date.now() - joinedAtRef.current < 1000) return;
-        stopRecognizerOnMute();
+        stopRecognizerOnMute('mute-poll');
       }
     }, 1500);
 
@@ -360,6 +380,8 @@ export default function AICallRoom({
           }
         }
         micStreamRef.current = micStream;
+        const trackId = micStream.getAudioTracks()[0]?.id ?? 'none';
+        logRecognizer('audio_stream_attached', { participantId: participantIdRef.current, trackId, usedDaily: usedDailyTrackRef.current });
         const audioConfig = sdk.AudioConfig.fromStreamInput(micStream);
 
         const config = sdk.SpeechTranslationConfig.fromAuthorizationToken(token, region);
@@ -367,6 +389,8 @@ export default function AICallRoom({
         config.addTargetLanguage(toTranslationTarget(target));
 
         const recognizer = new sdk.TranslationRecognizer(config, audioConfig);
+        const recognizerId = (recognizer as { _impl?: { id?: string } })._impl?.id ?? `r-${Date.now()}`;
+        logRecognizer('recognizer_created', { participantId: participantIdRef.current, recognizerId });
         recognizerRef.current = recognizer;
 
         const validReasons = [sdk.ResultReason.TranslatingSpeech, sdk.ResultReason.TranslatedSpeech];
@@ -410,6 +434,7 @@ export default function AICallRoom({
         const scheduleRestart = (reason: string) => {
           if (!mounted || translationPausedRef.current) return;
           if (recognizerRef.current !== recognizer) return;
+          logRecognizer('recognizer_restart_scheduled', { participantId: participantIdRef.current, recognizerId, reason });
           recognizerRef.current = null;
           try {
             const p = recognizer.stopContinuousRecognitionAsync?.() as Promise<void> | void | undefined;
@@ -441,10 +466,12 @@ export default function AICallRoom({
         };
 
         recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
+          logRecognizer('recognizer_canceled', { participantId: participantIdRef.current, recognizerId, reason: e.reason, errorDetails: (e.errorDetails ?? '').slice(0, 80) });
           console.warn('Azure Speech canceled:', e.reason, e.errorDetails);
           const details = String(e.errorDetails ?? e.reason ?? '').toLowerCase();
           const isConnectionError = details.includes('1006') || details.includes('unable to contact') || details.includes('connection') || details.includes('websocket');
           if (isConnectionError && mounted) {
+            logRecognizer('recognizer_closed', { participantId: participantIdRef.current, source: 'canceled-1006', recognizerId });
             recognizerRef.current = null;
             try {
               recognizer.close?.();
@@ -460,6 +487,7 @@ export default function AICallRoom({
         };
 
         await recognizer.startContinuousRecognitionAsync();
+        logRecognizer('recognizer_started', { participantId: participantIdRef.current, recognizerId });
         if (mounted) setAzureReady(true);
 
         // Proactive token refresh every 8 min (token valid ~10 min) to prevent mid-call expiration
@@ -478,6 +506,7 @@ export default function AICallRoom({
     // Recognizer starts only from joined-meeting or participant-updated (unmute), not before join
 
     return () => {
+      logRecognizer('effect_cleanup', { participantId: participantIdRef.current, hasRecognizer: !!recognizerRef.current });
       hasJoinedCallRef.current = false;
       mounted = false;
       visibilityCleanup?.();
@@ -486,6 +515,7 @@ export default function AICallRoom({
       const r = recognizerRef.current;
       recognizerRef.current = null;
       if (r) {
+        logRecognizer('recognizer_closed', { participantId: participantIdRef.current, source: 'effect-cleanup' });
         try {
           const p = r.stopContinuousRecognitionAsync?.();
           if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
