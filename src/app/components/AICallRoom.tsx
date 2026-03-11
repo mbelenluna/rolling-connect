@@ -200,8 +200,8 @@ export default function AICallRoom({
         log(role, 'joined_meeting', { delayMs });
         setTimeout(() => {
           const stillUnmuted = callFrame.localAudio() !== false;
-          console.log('[AzureRecognizer] startRecognizer_timeout', { role, mounted, stillUnmuted });
-          if (mounted && stillUnmuted) startRecognizer();
+          console.log('[AzureRecognizer] startRecognizer_timeout', { role, mounted, stillUnmuted, startupPath: 'joined-meeting', existingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
+          if (mounted && stillUnmuted) startRecognizer('joined-meeting');
         }, delayMs);
       } else {
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
@@ -212,6 +212,7 @@ export default function AICallRoom({
       const r = recognizerRef.current;
       if (r) {
         log(role, 'recognizer_stopped', { source });
+        console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'stopRecognizerOnMute', caller: source });
         recognizerRef.current = null;
         try {
           const p = r.stopContinuousRecognitionAsync?.();
@@ -252,8 +253,19 @@ export default function AICallRoom({
         const delayMs = 300;
         setTimeout(() => {
           if (!mounted || !callRef.current) return;
+          // Guard: do not start before joined-meeting fires. The joined-meeting handler
+          // uses a deliberate delay (1200 ms for guests) so Daily's audio pipeline is
+          // fully established before getUserMedia is called. participant-updated can fire
+          // during the join handshake (before joined-meeting), which caused premature
+          // recognizer creation with a stale mic stream. hasJoinedCallRef is set in the
+          // joined-meeting handler, so this check serialises startup correctly.
+          if (!hasJoinedCallRef.current) {
+            console.log('[AzureRecognizer] participant_updated_blocked_pre_join', { role });
+            return;
+          }
           if (callFrame.localAudio() !== true || translationPausedRef.current) return;
-          startRecognizer();
+          console.log('[AzureRecognizer] participant_updated_starting_recognizer', { role, existingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
+          startRecognizer('participant-updated');
         }, delayMs);
       }
     });
@@ -301,8 +313,8 @@ export default function AICallRoom({
       ? `/api/calls/${callId}/guest-azure-token?inviteToken=${encodeURIComponent(inviteToken)}`
       : '/api/azure-speech-token';
 
-    async function startRecognizer() {
-      console.log('[AzureRecognizer] startRecognizer_called', { role, mounted, translationPaused: translationPausedRef.current, hasExistingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
+    async function startRecognizer(startupPath = 'unknown') {
+      console.log('[AzureRecognizer] startRecognizer_called', { role, startupPath, mounted, translationPaused: translationPausedRef.current, hasExistingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
       if (!mounted || translationPausedRef.current) return;
       const r = recognizerRef.current;
       if (r) return; // Already running
@@ -353,6 +365,7 @@ export default function AICallRoom({
         localRecognizer = recognizer; // track so catch can close it if start fails
         log(role, 'recognizer_created', { instId });
         recognizerRef.current = recognizer;
+        console.log('[AzureRecognizer] recognizer_ref_set', { role, instId, startupPath });
 
         // Per-recognizer flag: the canceled handler sets this true for fatal errors (1006/quota).
         // sessionStopped checks it so it cannot schedule a restart that canceled already prevented.
@@ -407,6 +420,7 @@ export default function AICallRoom({
           if (!mounted || translationPausedRef.current) return;
           if (recognizerRef.current !== recognizer) return;
           log(role, 'recognizer_restart_scheduled', { instId, reason });
+          console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'scheduleRestart', reason });
           recognizerRef.current = null;
           try {
             const p = recognizer.stopContinuousRecognitionAsync?.() as Promise<void> | void | undefined;
@@ -441,7 +455,7 @@ export default function AICallRoom({
               console.log('[AzureRecognizer] restart_blocked_fatal', { role, reason });
               return;
             }
-            startRecognizer();
+            startRecognizer('scheduleRestart');
           }, 1000);
         };
 
@@ -454,6 +468,7 @@ export default function AICallRoom({
             // Mark fatal FIRST so that sessionStopped (which may fire after this in any order)
             // will see the flag and skip its scheduleRestart call.
             fatalErrorOccurred = true;
+            console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'canceled_fatal', startupPath });
             recognizerRef.current = null;
             try { recognizer.close?.(); } catch {}
             stopMicStream();
@@ -489,7 +504,10 @@ export default function AICallRoom({
         // If the recognizer was created but startContinuousRecognitionAsync threw, close it
         // to prevent it from becoming an orphan that holds an Azure quota slot.
         if (localRecognizer) {
-          if (recognizerRef.current === localRecognizer) recognizerRef.current = null;
+          if (recognizerRef.current === localRecognizer) {
+            console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'catch_cleanup', startupPath });
+            recognizerRef.current = null;
+          }
           try { localRecognizer.close?.(); } catch {}
           stopMicStream();
         }
@@ -511,6 +529,7 @@ export default function AICallRoom({
       clearInterval(mutePollInterval);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
       const r = recognizerRef.current;
+      console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'effect_cleanup', hadRecognizer: !!r });
       recognizerRef.current = null;
       if (r) {
         log(role, 'recognizer_closed', { source: 'effect-cleanup' });
@@ -556,6 +575,7 @@ export default function AICallRoom({
 
     const r = recognizerRef.current;
     if (r) {
+      console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'lang_toggle' });
       recognizerRef.current = null;
       try {
         const p = r.stopContinuousRecognitionAsync?.();
@@ -580,7 +600,7 @@ export default function AICallRoom({
     if (callRef.current?.localAudio() === false) return;
 
     // Reuse startRecognizer so it gets canceled/sessionStopped handlers and token refresh
-    setTimeout(() => startRecognizerRef.current(), 100);
+    setTimeout(() => startRecognizerRef.current('lang-toggle'), 100);
   }, [mySourceLang, azureReady, hasJoined, sourceLanguage, targetLanguage, inviteToken, callId, stopMicStream]);
 
   useEffect(() => {
@@ -618,7 +638,7 @@ export default function AICallRoom({
     setHasJoined(true);
   };
 
-  const startRecognizerRef = useRef<() => void>(() => {});
+  const startRecognizerRef = useRef<(startupPath?: string) => void>(() => {});
   const toggleCooldownRef = useRef<number>(0);
   const [toggleDisabled, setToggleDisabled] = useState(false);
   const TOGGLE_COOLDOWN_MS = 500;
@@ -639,6 +659,7 @@ export default function AICallRoom({
       if (next) {
         const r = recognizerRef.current;
         if (r) {
+          console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'toggle_pause' });
           recognizerRef.current = null;
           try {
             const p = r.stopContinuousRecognitionAsync?.();
@@ -660,7 +681,7 @@ export default function AICallRoom({
         setInterimOut('');
       } else {
         // Resuming: start recognizer (participant-updated may not fire immediately)
-        setTimeout(() => startRecognizerRef.current(), 150);
+        setTimeout(() => startRecognizerRef.current('unpause'), 150);
       }
     }
   };
@@ -670,6 +691,7 @@ export default function AICallRoom({
     if (isEndingCall) endedByUserRef.current = true;
 
     const r = recognizerRef.current;
+    console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'handleEndOrCancel', hadRecognizer: !!r });
     recognizerRef.current = null;
     if (r) {
       try {
