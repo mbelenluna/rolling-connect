@@ -933,10 +933,7 @@ export default function AICallRoom({
         </div>
 
         <div className="p-4 bg-brand-50 border-b border-brand-100 space-y-4">
-          {azureError ? (
-            <p className="text-amber-700 text-sm">{azureError}</p>
-          ) : (
-            <>
+          <>
               <div>
                 <h2 className="text-sm font-semibold text-brand-900 mb-2">
                   {t('youSpeak')} ({mySourceLabel} → {otherLangLabel})
@@ -967,8 +964,7 @@ export default function AICallRoom({
                   )}
                 </div>
               </div>
-            </>
-          )}
+          </>
         </div>
 
         <div ref={dailyContainerRef} className="min-h-[500px]" />
