@@ -5,42 +5,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import Daily from '@daily-co/daily-js';
+import { io } from 'socket.io-client';
 import { toAzureLanguage, getLanguageDisplayName, toTranslationTarget, getTranslationLookupKeys } from '@/lib/azure-languages';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 import type { TranslationRecognitionEventArgs } from 'microsoft-cognitiveservices-speech-sdk';
 
-const AZURE_RECOGNIZER_DEBUG = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
-
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
-function logRecognizer(event: string, detail: Record<string, unknown>) {
-  if (!AZURE_RECOGNIZER_DEBUG) return;
-  console.log('[AzureRecognizer]', { event, time: Date.now(), ...detail });
-}
-
-/** Run fn when the tab is visible. Browsers block WebSockets in background tabs - guests often open invite links in new tabs. */
-function runWhenVisible(fn: () => void): () => void {
-  if (typeof document === 'undefined') {
-    fn();
-    return () => {};
-  }
-  if (document.visibilityState === 'visible') {
-    fn();
-    return () => {};
-  }
-  const handler = () => {
-    if (document.visibilityState === 'visible') {
-      document.removeEventListener('visibilitychange', handler);
-      fn();
-    }
-  };
-  document.addEventListener('visibilitychange', handler);
-  return () => document.removeEventListener('visibilitychange', handler);
 }
 
 /** Infer default sourceLang from browser/UI language (returns Azure format) */
@@ -135,16 +109,10 @@ export default function AICallRoom({
 
   const recognizerRef = useRef<{ stopContinuousRecognitionAsync?: () => unknown; close?: () => void } | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
-  const usedDailyTrackRef = useRef(false);
 
   const stopMicStream = useCallback(() => {
-    const stream = micStreamRef.current;
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current = null;
-    // Don't stop tracks we borrowed from Daily (would mute the call)
-    if (stream && !usedDailyTrackRef.current) {
-      stream.getTracks().forEach((t) => t.stop());
-    }
-    usedDailyTrackRef.current = false;
   }, []);
 
   const endCallIfNotByUser = useCallback(() => {
@@ -174,9 +142,46 @@ export default function AICallRoom({
     }
   }, []);
 
+  useEffect(() => {
+    const userId = (session?.user as { id?: string })?.id;
+    if (!userId || !tokenUrl || dailyError) return;
+    const socket = io({ path: '/api/socketio' });
+    socket.on('connect', () => socket.emit('auth', { userId, role: 'client' }));
+    socket.on('call_ended', () => {
+      if (containerRef.current) containerRef.current.style.display = 'none';
+      const r = recognizerRef.current;
+      recognizerRef.current = null;
+      if (r) {
+        try {
+          const p = r.stopContinuousRecognitionAsync?.();
+          if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
+            (p as Promise<void>).catch(() => {}).finally(() => {
+              r.close?.();
+              stopMicStream();
+            });
+          } else {
+            r.close?.();
+            stopMicStream();
+          }
+        } catch {
+          stopMicStream();
+        }
+      }
+      if (callRef.current) {
+        try {
+          callRef.current.destroy();
+        } catch {}
+        callRef.current = null;
+      }
+      router.replace(summaryHref);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user, tokenUrl, dailyError, summaryHref, router, stopMicStream]);
+
   // Daily call frame + Azure recognizer (single recognizer with explicit sourceLang)
   useEffect(() => {
-    logRecognizer('effect_run', { hasJoined, hasTokenUrl: !!tokenUrl, hasDailyError: !!dailyError });
     if (!tokenUrl || dailyError || !hasJoined || !dailyContainerRef.current) return;
 
     const container = dailyContainerRef.current;
@@ -209,44 +214,25 @@ export default function AICallRoom({
     };
 
     const joinedAtRef = { current: 0 };
-    const participantIdRef = { current: '' };
     callFrame.on('joined-meeting', () => {
       hasJoinedCallRef.current = true;
       joinedAtRef.current = Date.now();
-      participantIdRef.current = callFrame.participants().local?.session_id ?? 'unknown';
-      logRecognizer('call_state_updated', { participantId: participantIdRef.current, state: 'joined-meeting' });
       checkAndStartTimer();
       callFrame.setUserData({ sourceLang: mySourceLangRef.current });
       // Only start recognizer if mic is not muted
       if (callFrame.localAudio() !== false) {
-        // Delay so Daily/browser can establish mic; guests may need longer for Daily tracks to be ready
-        const delayMs = inviteToken ? 1200 : 500;
-        const doStart = () => {
-          // Browsers block WebSockets in background tabs - only start when visible (avoids Azure 1006 for guests)
-          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-            visibilityCleanup?.();
-            visibilityCleanup = runWhenVisible(doStart);
-            return;
-          }
+        // Delay ~500ms so Daily/browser can fully establish mic before we grab it
+        setTimeout(() => {
           if (mounted && callFrame.localAudio() !== false) startRecognizer();
-        };
-        visibilityCleanup?.();
-        visibilityCleanup = runWhenVisible(() => setTimeout(doStart, delayMs));
+        }, 500);
       } else {
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
       }
     });
-    callFrame.on('participant-joined', () => {
-      if (!participantIdRef.current) participantIdRef.current = callFrame.participants().local?.session_id ?? 'unknown';
-      const participants = callFrame.participants();
-      const ids = Object.keys(participants).filter((k) => k !== 'local');
-      logRecognizer('participant_joined', { participantId: participantIdRef.current, remoteCount: ids.length });
-      checkAndStartTimer();
-    });
-    const stopRecognizerOnMute = (source: string) => {
+    callFrame.on('participant-joined', checkAndStartTimer);
+    const stopRecognizerOnMute = () => {
       const r = recognizerRef.current;
       if (r) {
-        logRecognizer('recognizer_stopped', { participantId: participantIdRef.current, source, recognizerId: (r as { _impl?: { id?: string } })._impl?.id ?? 'n/a' });
         recognizerRef.current = null;
         try {
           const p = r.stopContinuousRecognitionAsync?.();
@@ -274,47 +260,37 @@ export default function AICallRoom({
     callFrame.on('participant-updated', (e: { participant?: { local?: boolean; session_id?: string } }) => {
       const local = callFrame.participants().local;
       const isLocal = e?.participant?.local || (local && e?.participant?.session_id === local.session_id);
-      const audioOn = callFrame.localAudio();
-      logRecognizer('participant_updated', { participantId: participantIdRef.current, isLocal, audioOn, audioOnType: typeof audioOn });
       if (!isLocal) return;
-      // Only stop when EXPLICITLY muted (audioOn === false). Daily can return undefined during participant sync when invitee joins.
-      if (audioOn === false) {
+      const audioOn = callFrame.localAudio();
+      if (audioOn !== true) {
+        // Muted: stop recognizer (treat anything other than explicit true as muted)
         if (Date.now() - joinedAtRef.current < 1000) return; // Brief grace for initial join
-        stopRecognizerOnMute('participant-updated');
+        stopRecognizerOnMute();
       } else {
         // Unmuted: delay before starting so rapid mute/unmute/mute doesn't leave recognizer running
         setTranslationPaused(false);
         const delayMs = 300;
-        const doStartUnmute = () => {
-          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-            visibilityCleanup?.();
-            visibilityCleanup = runWhenVisible(doStartUnmute);
-            return;
-          }
+        setTimeout(() => {
           if (!mounted || !callRef.current) return;
           if (callFrame.localAudio() !== true || translationPausedRef.current) return;
           startRecognizer();
-        };
-        visibilityCleanup?.();
-        visibilityCleanup = runWhenVisible(() => setTimeout(doStartUnmute, delayMs));
+        }, delayMs);
       }
     });
 
     // Poll for mute state as fallback (participant-updated may not fire reliably in all cases)
     const mutePollInterval = setInterval(() => {
       if (!mounted || !callFrame.participants().local) return;
-      const audioOn = callFrame.localAudio();
-      if (audioOn === false && recognizerRef.current) {
+      if (callFrame.localAudio() !== true && recognizerRef.current) {
         if (Date.now() - joinedAtRef.current < 1000) return;
-        stopRecognizerOnMute('mute-poll');
+        stopRecognizerOnMute();
       }
     }, 1500);
 
-    callFrame.on('app-message', (e: { data?: { type?: string; translation?: string; fromSessionId?: string }; fromId?: string; participant?: { session_id?: string } }) => {
+    callFrame.on('app-message', (e: { data?: { type?: string; translation?: string; fromSessionId?: string }; fromId?: string }) => {
       if (!mounted || !e?.data) return;
       const localId = callFrame.participants().local?.session_id;
-      const senderId = e.fromId ?? e.participant?.session_id ?? e.data.fromSessionId;
-      if (localId && senderId === localId) return; // Ignore our own messages
+      if (localId && (e.fromId === localId || e.data.fromSessionId === localId)) return; // Ignore our own messages
       if (e.data.type === 'translation' && e.data.translation) {
         const t = e.data.translation;
         setAccumulatedIn((prev) => (prev ? prev + ' ' + t : t));
@@ -331,7 +307,6 @@ export default function AICallRoom({
 
     let mounted = true;
     let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
-    let visibilityCleanup: (() => void) | null = null;
 
     const azureTokenUrl = inviteToken && callId
       ? `/api/calls/${callId}/guest-azure-token?inviteToken=${encodeURIComponent(inviteToken)}`
@@ -354,34 +329,10 @@ export default function AICallRoom({
         const source = mySourceLangRef.current;
         const target = source === sourceAzure ? targetAzure : sourceAzure;
 
-        // Host: use Daily's local audio track (avoids double mic prompt).
-        // Guest: always use getUserMedia - Daily's track can transition/reconfigure when guest speaks,
-        // causing Azure to disconnect (1006) and killing translation on both ends.
-        let micStream: MediaStream;
-        if (inviteToken) {
-          micStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true },
-          });
-          usedDailyTrackRef.current = false;
-        } else {
-          const getDailyTrack = () => {
-            const local = callFrame.participants().local as { tracks?: { audio?: { persistentTrack?: MediaStreamTrack; track?: MediaStreamTrack } } } | undefined;
-            return local?.tracks?.audio?.persistentTrack ?? local?.tracks?.audio?.track;
-          };
-          const track = getDailyTrack();
-          if (track && track.enabled) {
-            micStream = new MediaStream([track]);
-            usedDailyTrackRef.current = true;
-          } else {
-            micStream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true },
-            });
-            usedDailyTrackRef.current = false;
-          }
-        }
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
         micStreamRef.current = micStream;
-        const trackId = micStream.getAudioTracks()[0]?.id ?? 'none';
-        logRecognizer('audio_stream_attached', { participantId: participantIdRef.current, trackId, usedDaily: usedDailyTrackRef.current });
         const audioConfig = sdk.AudioConfig.fromStreamInput(micStream);
 
         const config = sdk.SpeechTranslationConfig.fromAuthorizationToken(token, region);
@@ -389,8 +340,6 @@ export default function AICallRoom({
         config.addTargetLanguage(toTranslationTarget(target));
 
         const recognizer = new sdk.TranslationRecognizer(config, audioConfig);
-        const recognizerId = (recognizer as { _impl?: { id?: string } })._impl?.id ?? `r-${Date.now()}`;
-        logRecognizer('recognizer_created', { participantId: participantIdRef.current, recognizerId });
         recognizerRef.current = recognizer;
 
         const validReasons = [sdk.ResultReason.TranslatingSpeech, sdk.ResultReason.TranslatedSpeech];
@@ -434,7 +383,6 @@ export default function AICallRoom({
         const scheduleRestart = (reason: string) => {
           if (!mounted || translationPausedRef.current) return;
           if (recognizerRef.current !== recognizer) return;
-          logRecognizer('recognizer_restart_scheduled', { participantId: participantIdRef.current, recognizerId, reason });
           recognizerRef.current = null;
           try {
             const p = recognizer.stopContinuousRecognitionAsync?.() as Promise<void> | void | undefined;
@@ -452,34 +400,14 @@ export default function AICallRoom({
             stopMicStream();
           }
           console.warn(`Azure Speech ${reason}, restarting in 1s...`);
-          const doRestart = () => {
-            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-              visibilityCleanup?.();
-              visibilityCleanup = runWhenVisible(doRestart);
-              return;
-            }
+          setTimeout(() => {
             if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
             startRecognizer();
-          };
-          visibilityCleanup?.();
-          visibilityCleanup = runWhenVisible(() => setTimeout(doRestart, 1000));
+          }, 1000);
         };
 
         recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
-          logRecognizer('recognizer_canceled', { participantId: participantIdRef.current, recognizerId, reason: e.reason, errorDetails: (e.errorDetails ?? '').slice(0, 80) });
           console.warn('Azure Speech canceled:', e.reason, e.errorDetails);
-          const details = String(e.errorDetails ?? e.reason ?? '').toLowerCase();
-          const isConnectionError = details.includes('1006') || details.includes('unable to contact') || details.includes('connection') || details.includes('websocket');
-          if (isConnectionError && mounted) {
-            logRecognizer('recognizer_closed', { participantId: participantIdRef.current, source: 'canceled-1006', recognizerId });
-            recognizerRef.current = null;
-            try {
-              recognizer.close?.();
-            } catch {}
-            stopMicStream();
-            setAzureError(t('azureConnectionError'));
-            return;
-          }
           scheduleRestart(`canceled (${e.errorDetails || e.reason})`);
         };
         recognizer.sessionStopped = () => {
@@ -487,7 +415,6 @@ export default function AICallRoom({
         };
 
         await recognizer.startContinuousRecognitionAsync();
-        logRecognizer('recognizer_started', { participantId: participantIdRef.current, recognizerId });
         if (mounted) setAzureReady(true);
 
         // Proactive token refresh every 8 min (token valid ~10 min) to prevent mid-call expiration
@@ -506,16 +433,13 @@ export default function AICallRoom({
     // Recognizer starts only from joined-meeting or participant-updated (unmute), not before join
 
     return () => {
-      logRecognizer('effect_cleanup', { participantId: participantIdRef.current, hasRecognizer: !!recognizerRef.current });
       hasJoinedCallRef.current = false;
       mounted = false;
-      visibilityCleanup?.();
       clearInterval(mutePollInterval);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
       const r = recognizerRef.current;
       recognizerRef.current = null;
       if (r) {
-        logRecognizer('recognizer_closed', { participantId: participantIdRef.current, source: 'effect-cleanup' });
         try {
           const p = r.stopContinuousRecognitionAsync?.();
           if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
@@ -582,7 +506,7 @@ export default function AICallRoom({
     if (callRef.current?.localAudio() === false) return;
 
     // Reuse startRecognizer so it gets canceled/sessionStopped handlers and token refresh
-    runWhenVisible(() => setTimeout(() => startRecognizerRef.current(), 100));
+    setTimeout(() => startRecognizerRef.current(), 100);
   }, [mySourceLang, azureReady, hasJoined, sourceLanguage, targetLanguage, inviteToken, callId, stopMicStream]);
 
   useEffect(() => {
@@ -662,7 +586,7 @@ export default function AICallRoom({
         setInterimOut('');
       } else {
         // Resuming: start recognizer (participant-updated may not fire immediately)
-        runWhenVisible(() => setTimeout(() => startRecognizerRef.current(), 150));
+        setTimeout(() => startRecognizerRef.current(), 150);
       }
     }
   };
@@ -804,9 +728,6 @@ export default function AICallRoom({
           </button>
         </div>
         <p className="text-sm text-slate-500 mb-4">{t('joinCallLanguageToggleHint')}</p>
-        {inviteToken && (
-          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">{t('joinCallTabHint')}</p>
-        )}
         <button type="button" onClick={handleJoin} className="w-full py-3 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700">
           {t('joinCallButton')}
         </button>
