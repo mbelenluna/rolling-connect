@@ -102,7 +102,8 @@ const GOOGLE_LANG_MAP: Record<string, string> = {
 };
 
 export function toGoogleLanguage(code: string): string {
-  return GOOGLE_LANG_MAP[code] ?? code;
+  // Exact match first, then try base language code (e.g. 'en-US' → 'en')
+  return GOOGLE_LANG_MAP[code] ?? GOOGLE_LANG_MAP[code.split('-')[0]] ?? code.split('-')[0];
 }
 
 /** Map to UI format (e.g. en-US for join modal) - same as legacy Azure format */

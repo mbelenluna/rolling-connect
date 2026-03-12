@@ -713,7 +713,12 @@ export default function AICallRoom({
                 <h2 className="text-sm font-semibold text-brand-900 mb-2">
                   {t('youSpeak')} ({mySourceLabel} → {otherLangLabel})
                 </h2>
-                {azureReady ? (
+                {azureError ? (
+                  <div className="min-h-[56px] p-3 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-red-700 text-sm font-medium">⚠ AI translation error</p>
+                    <p className="text-red-600 text-xs mt-1">{azureError}</p>
+                  </div>
+                ) : azureReady ? (
                   <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
                     {translationPaused ? (
                       <p className="text-amber-700 text-sm italic">{t('mutedMessage')}</p>

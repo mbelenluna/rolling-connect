@@ -1,7 +1,7 @@
 /**
  * Speech streaming server (Deepgram + Google Translate).
- * Runs on port 3001 to avoid conflicts with Next.js/Socket.IO.
- * Uses shared global.__speechTokenStore (must be set by caller).
+ * Runs on SPEECH_WS_PORT (default 3005) to avoid conflicts with Next.js/Socket.IO.
+ * Uses shared global.__speechTokenStore (must be set by caller before this module loads).
  */
 const { createServer } = require('http');
 const { parse } = require('url');
@@ -11,6 +11,7 @@ const { validate: validateSpeechToken } = require('./src/lib/speech-token-store'
 
 function startSpeechServer() {
   const port = parseInt(process.env.SPEECH_WS_PORT || '3005', 10);
+
   const httpServer = createServer((req, res) => {
     const { pathname } = parse(req.url, true);
     if (pathname === '/health') {
@@ -22,35 +23,8 @@ function startSpeechServer() {
     res.end();
   });
 
-  httpServer.on('upgrade', (request, socket, head) => {
-  const { pathname, query } = parse(request.url, true);
-  console.log('[SpeechStream] Upgrade request:', pathname);
-
-  if (pathname !== '/api/speech-stream') {
-    socket.destroy();
-    return;
-  }
-
-  const token = query.token;
-  if (!token) {
-    console.warn('[SpeechStream] Rejected: missing token');
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
-
-  const auth = validateSpeechToken(token);
-  if (!auth) {
-    console.warn('[SpeechStream] Rejected: invalid token');
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
-
+  // Single WSS instance shared across all connections (correct noServer pattern)
   const wss = new WebSocket.Server({ noServer: true });
-  wss.handleUpgrade(request, socket, head, (clientWs) => {
-    wss.emit('connection', clientWs, request);
-  });
 
   wss.on('connection', (clientWs) => {
     console.log('[SpeechStream] Client connected');
@@ -71,14 +45,14 @@ function startSpeechServer() {
     const audioBuffer = [];
 
     const connectDeepgram = () => {
-      const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true`;
+      const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true&punctuate=true`;
       console.log('[SpeechStream] Connecting to Deepgram...');
       deepgramWs = new WebSocket(url, {
         headers: { Authorization: `Token ${deepgramKey}` },
       });
 
       deepgramWs.on('open', () => {
-        console.log('[SpeechStream] Deepgram connected, flushing', audioBuffer.length, 'chunks');
+        console.log('[SpeechStream] Deepgram connected, flushing', audioBuffer.length, 'buffered chunks');
         for (const buf of audioBuffer) deepgramWs.send(buf);
         audioBuffer.length = 0;
         clientWs.send(JSON.stringify({ type: 'ready' }));
@@ -95,7 +69,7 @@ function startSpeechServer() {
 
           let text = transcript;
           try {
-            const translateUrl = `https://translation.googleapis.com/language/translate/v2?key=${googleKey}&q=${encodeURIComponent(transcript)}&source=${sourceLang}&target=${targetLang}`;
+            const translateUrl = `https://translation.googleapis.com/language/translate/v2?key=${googleKey}&q=${encodeURIComponent(transcript)}&source=${sourceLang}&target=${targetLang}&format=text`;
             const res = await fetch(translateUrl);
             const json = await res.json();
             if (!res.ok) {
@@ -108,7 +82,7 @@ function startSpeechServer() {
           }
 
           const payload = { type: isFinal ? 'final' : 'interim', text };
-          clientWs.send(JSON.stringify(payload));
+          if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify(payload));
         } catch (err) {
           console.error('[SpeechStream] Parse error:', err.message);
         }
@@ -116,23 +90,26 @@ function startSpeechServer() {
 
       deepgramWs.on('error', (err) => {
         console.error('[SpeechStream] Deepgram error:', err.message);
-        clientWs.send(JSON.stringify({ type: 'error', error: String(err.message) }));
+        if (clientWs.readyState === WebSocket.OPEN)
+          clientWs.send(JSON.stringify({ type: 'error', error: String(err.message) }));
       });
 
       deepgramWs.on('close', () => {
+        console.log('[SpeechStream] Deepgram connection closed');
         deepgramWs = null;
       });
     };
 
-    clientWs.on('message', (data) => {
-      const str = (typeof data === 'string' || Buffer.isBuffer(data)) ? String(data) : '';
-      if (str.startsWith('{')) {
+    clientWs.on('message', (data, isBinary) => {
+      if (!isBinary) {
+        // Text frame: JSON config sent before audio
+        const str = typeof data === 'string' ? data : data.toString('utf8');
         try {
           const cfg = JSON.parse(str);
           if (cfg.sourceLang) sourceLang = cfg.sourceLang;
           if (cfg.targetLang) targetLang = cfg.targetLang;
           if (cfg.sourceLangDeepgram) sourceLangDeepgram = cfg.sourceLangDeepgram;
-          console.log('[SpeechStream] Config:', { sourceLang, targetLang, sourceLangDeepgram });
+          console.log('[SpeechStream] Config received:', { sourceLang, targetLang, sourceLangDeepgram });
           connectDeepgram();
         } catch (e) {
           console.error('[SpeechStream] Config parse error:', e);
@@ -140,23 +117,73 @@ function startSpeechServer() {
         return;
       }
 
-      if (data && typeof data !== 'string') {
-        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-        if (audioBuffer.length === 0 && (!deepgramWs || deepgramWs.readyState !== WebSocket.OPEN)) {
-          console.log('[SpeechStream] First audio chunk,', buf.length, 'bytes');
-        }
-        if (deepgramWs && deepgramWs.readyState === WebSocket.OPEN) {
-          deepgramWs.send(buf);
-        } else {
-          audioBuffer.push(buf);
-        }
+      // Binary frame: raw PCM audio — forward to Deepgram
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      if (deepgramWs && deepgramWs.readyState === WebSocket.OPEN) {
+        deepgramWs.send(buf);
+      } else {
+        audioBuffer.push(buf);
       }
     });
 
     clientWs.on('close', () => {
-      if (deepgramWs) deepgramWs.close();
+      console.log('[SpeechStream] Client disconnected');
+      if (deepgramWs) {
+        deepgramWs.close();
+        deepgramWs = null;
+      }
+    });
+
+    clientWs.on('error', (err) => {
+      console.error('[SpeechStream] Client WS error:', err.message);
     });
   });
+
+  httpServer.on('upgrade', (request, socket, head) => {
+    try {
+      const { pathname, query } = parse(request.url, true);
+      console.log('[SpeechStream] Upgrade request:', pathname);
+
+      if (pathname !== '/api/speech-stream') {
+        socket.destroy();
+        return;
+      }
+
+      const token = query.token;
+      console.log('[SpeechStream] Token present:', !!token);
+      if (!token) {
+        console.log('[SpeechStream] Rejected: missing token');
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
+      let auth;
+      try {
+        auth = validateSpeechToken(token);
+      } catch (e) {
+        console.error('[SpeechStream] validateSpeechToken threw:', e);
+        socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
+      console.log('[SpeechStream] Token valid:', !!auth);
+      if (!auth) {
+        console.log('[SpeechStream] Rejected: invalid/expired token');
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
+      // Hand off to the shared WSS instance
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } catch (err) {
+      console.error('[SpeechStream] Uncaught error in upgrade handler:', err);
+      try { socket.destroy(); } catch {}
+    }
   });
 
   httpServer.listen(port, () => {
