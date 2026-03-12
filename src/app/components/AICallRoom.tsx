@@ -319,6 +319,17 @@ export default function AICallRoom({
           },
           onClose: () => {
             recognizerRef.current = null;
+            // Auto-restart if still in call and not paused/muted
+            if (mounted && !translationPausedRef.current && callFrame.localAudio() !== false) {
+              const now = Date.now();
+              if (now - lastRestartAt > MIN_RESTART_INTERVAL_MS) {
+                lastRestartAt = now;
+                console.log('[SpeechStream] WebSocket closed unexpectedly — restarting recognizer in 2s');
+                setTimeout(() => {
+                  if (mounted && !translationPausedRef.current) startRecognizer('ws-reconnect');
+                }, 2000);
+              }
+            }
           },
         });
 
