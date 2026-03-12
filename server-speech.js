@@ -1,6 +1,6 @@
 /**
- * Speech streaming server (Deepgram + Google Translate).
- * Runs on SPEECH_WS_PORT (default 3005) to avoid conflicts with Next.js/Socket.IO.
+ * Speech streaming handler (Deepgram + Google Translate).
+ * Attaches a /api/speech-stream WebSocket handler to an existing HTTP server.
  * Uses shared global.__speechTokenStore (must be set by caller before this module loads).
  */
 const { createServer } = require('http');
@@ -9,21 +9,12 @@ const WebSocket = require('ws');
 
 const { validate: validateSpeechToken } = require('./src/lib/speech-token-store');
 
-function startSpeechServer() {
-  const port = parseInt(process.env.SPEECH_WS_PORT || '3005', 10);
-
-  const httpServer = createServer((req, res) => {
-    const { pathname } = parse(req.url, true);
-    if (pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('OK');
-      return;
-    }
-    res.writeHead(404);
-    res.end();
-  });
-
-  // Single WSS instance shared across all connections (correct noServer pattern)
+/**
+ * Attach the /api/speech-stream WebSocket handler to the given httpServer.
+ * Call this once after the HTTP server is created, before it starts listening.
+ */
+function setupSpeechWebSocket(httpServer) {
+  // Single WSS instance shared across all connections
   const wss = new WebSocket.Server({ noServer: true });
 
   wss.on('connection', (clientWs) => {
@@ -142,15 +133,15 @@ function startSpeechServer() {
   httpServer.on('upgrade', (request, socket, head) => {
     try {
       const { pathname, query } = parse(request.url, true);
-      console.log('[SpeechStream] Upgrade request:', pathname);
 
+      // Only handle speech stream upgrades — let Socket.IO handle the rest
       if (pathname !== '/api/speech-stream') {
-        socket.destroy();
         return;
       }
 
+      console.log('[SpeechStream] Upgrade request for /api/speech-stream');
+
       const token = query.token;
-      console.log('[SpeechStream] Token present:', !!token);
       if (!token) {
         console.log('[SpeechStream] Rejected: missing token');
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -168,7 +159,6 @@ function startSpeechServer() {
         return;
       }
 
-      console.log('[SpeechStream] Token valid:', !!auth);
       if (!auth) {
         console.log('[SpeechStream] Rejected: invalid/expired token');
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -185,18 +175,27 @@ function startSpeechServer() {
       try { socket.destroy(); } catch {}
     }
   });
-
-  httpServer.listen(port, () => {
-    console.log(`[SpeechStream] Server running on ws://localhost:${port}`);
-    console.log(`[SpeechStream] Health check: http://localhost:${port}/health`);
-  });
 }
 
 // Allow standalone run: node server-speech.js
 if (require.main === module) {
   require('dotenv').config();
   global.__speechTokenStore = global.__speechTokenStore || new Map();
-  startSpeechServer();
+  const port = parseInt(process.env.SPEECH_WS_PORT || '3005', 10);
+  const httpServer = createServer((req, res) => {
+    const { pathname } = parse(req.url, true);
+    if (pathname === '/health') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('OK');
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  setupSpeechWebSocket(httpServer);
+  httpServer.listen(port, () => {
+    console.log(`[SpeechStream] Standalone server running on ws://localhost:${port}`);
+  });
 }
 
-module.exports = { startSpeechServer };
+module.exports = { setupSpeechWebSocket };

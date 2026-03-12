@@ -60,11 +60,8 @@ export async function startSpeechStream(
 
   const { token } = tokenData;
   const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Use dedicated speech server port when set (avoids Next.js/Socket.IO conflicts)
-  const speechPort = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_SPEECH_WS_PORT;
-  const host = speechPort
-    ? `${window.location.hostname}:${speechPort}`
-    : (typeof window !== 'undefined' ? window.location.host : 'localhost:3000');
+  // Speech WebSocket runs on the same server/port as the main app (no separate port needed)
+  const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
   const wsUrl = `${protocol}//${host}/api/speech-stream?token=${token}`;
   console.log('[SpeechStream] Connecting to', wsUrl.replace(/token=[^&]+/, 'token=***'));
   const ws = new WebSocket(wsUrl);

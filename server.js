@@ -5,7 +5,7 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
-const { startSpeechServer } = require('./server-speech');
+const { setupSpeechWebSocket } = require('./server-speech');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -19,6 +19,8 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url, true);
     await handle(req, res, parsedUrl);
   });
+
+  setupSpeechWebSocket(httpServer);
 
   const io = new Server(httpServer, {
     path: '/api/socketio',
@@ -58,6 +60,6 @@ app.prepare().then(() => {
     })
     .listen(port, () => {
       console.log(`> Ready on http://${hostname}:${port}`);
-      startSpeechServer();
+      console.log(`> Speech WebSocket ready on /api/speech-stream`);
     });
 });
