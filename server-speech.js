@@ -49,7 +49,7 @@ function setupSpeechWebSocket(httpServer) {
     const connectDeepgram = () => {
       if (deepgramConnecting || deepgramWs) return; // Prevent multiple concurrent connections
       deepgramConnecting = true;
-      const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true&endpointing=300`;
+      const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true&endpointing=300&smart_format=true`;
       console.log('[SpeechStream] Connecting to Deepgram...');
       deepgramWs = new WebSocket(url, {
         headers: { Authorization: `Token ${deepgramKey}` },
