@@ -4,18 +4,18 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Daily from '@daily-co/daily-js';
-import { toAzureLanguage, getLanguageDisplayName, toTranslationTarget, getTranslationLookupKeys } from '@/lib/azure-languages';
+import { getLanguageDisplayName, toUiLanguage } from '@/lib/speech-languages';
+import { startSpeechStream } from '@/lib/useSpeechStream';
 
 const DEBUG = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 let recognizerInstanceCount = 0;
 
 function log(role: 'host' | 'guest', event: string, detail?: Record<string, unknown>) {
   if (!DEBUG) return;
-  console.log('[AzureRecognizer]', { role, event, time: Date.now(), ...detail });
+  console.log('[SpeechRecognizer]', { role, event, time: Date.now(), ...detail });
 }
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
-import type { TranslationRecognitionEventArgs } from 'microsoft-cognitiveservices-speech-sdk';
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -23,14 +23,14 @@ function formatDuration(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-/** Infer default sourceLang from browser/UI language (returns Azure format) */
+/** Infer default sourceLang from browser/UI language */
 function inferDefaultSourceLang(sourceLanguage: string, targetLanguage: string): string {
-  if (typeof navigator === 'undefined') return toAzureLanguage(sourceLanguage);
+  if (typeof navigator === 'undefined') return toUiLanguage(sourceLanguage);
   const lang = (navigator.language || '').toLowerCase();
-  const targetAzure = toAzureLanguage(targetLanguage);
-  const targetBase = targetAzure.split('-')[0];
-  if (lang.startsWith(targetBase)) return targetAzure;
-  return toAzureLanguage(sourceLanguage);
+  const targetUi = toUiLanguage(targetLanguage);
+  const targetBase = targetUi.split('-')[0];
+  if (lang.startsWith(targetBase)) return targetUi;
+  return toUiLanguage(sourceLanguage);
 }
 
 type AICallRoomProps = {
@@ -45,7 +45,7 @@ type AICallRoomProps = {
   cancelEndpoint?: string | null;
   endCallEndpoint?: string | null;
   inviteLinkEndpoint?: string | null;
-  /** For guests: inviteToken + callId to fetch Azure token without auth */
+  /** For guests: inviteToken + callId to fetch speech token without auth */
   inviteToken?: string | null;
   callId?: string | null;
 };
@@ -70,7 +70,7 @@ export default function AICallRoom({
   const isGuest = !!(inviteToken && callId);
   const role: 'host' | 'guest' = isGuest ? 'guest' : 'host';
   const t = (k: TranslationKeys) => getTranslation(locale, k);
-  console.log('[AzureRecognizer] recognizer_condition_check', { role, isGuest, inviteToken: !!inviteToken, callId: !!callId, inviteTokenVal: inviteToken?.slice(0, 8), callIdVal: callId?.slice(0, 8) });
+  if (DEBUG) console.log('[SpeechRecognizer] recognizer_condition_check', { role, isGuest, inviteToken: !!inviteToken, callId: !!callId });
   const containerRef = useRef<HTMLDivElement>(null);
   const dailyContainerRef = useRef<HTMLDivElement>(null);
   const callRef = useRef<ReturnType<typeof Daily.createFrame> | null>(null);
@@ -97,17 +97,17 @@ export default function AICallRoom({
   inviteTokenRef.current = inviteToken;
   dailyErrorRef.current = dailyError;
 
-  const sourceAzure = toAzureLanguage(sourceLanguage);
-  const targetAzure = toAzureLanguage(targetLanguage);
+  const sourceUi = toUiLanguage(sourceLanguage);
+  const targetUi = toUiLanguage(targetLanguage);
 
   // Join modal: user must confirm sourceLang before joining
   const [showJoinModal, setShowJoinModal] = useState(true);
   const [joinSourceLang, setJoinSourceLang] = useState<string>(() => inferDefaultSourceLang(sourceLanguage, targetLanguage));
   const [hasJoined, setHasJoined] = useState(false);
 
-  // In-call sourceLang for local user (toggle pill) - stored in Azure format
-  const [mySourceLang, setMySourceLang] = useState<string>(sourceAzure);
-  const mySourceLangRef = useRef<string>(sourceAzure);
+  // In-call sourceLang for local user (toggle pill)
+  const [mySourceLang, setMySourceLang] = useState<string>(sourceUi);
+  const mySourceLangRef = useRef<string>(sourceUi);
   mySourceLangRef.current = mySourceLang;
 
   // Translation paused = we control this; when true, recognizer is stopped (independent of Daily mute)
@@ -115,13 +115,7 @@ export default function AICallRoom({
   const translationPausedRef = useRef(false);
   translationPausedRef.current = translationPaused;
 
-  const recognizerRef = useRef<{ stopContinuousRecognitionAsync?: () => unknown; close?: () => void } | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-
-  const stopMicStream = useCallback(() => {
-    micStreamRef.current?.getTracks().forEach((t) => t.stop());
-    micStreamRef.current = null;
-  }, []);
+  const recognizerRef = useRef<{ close: () => void } | null>(null);
 
   const endCallIfNotByUser = useCallback(() => {
     if (endedByUserRef.current) return;
@@ -150,9 +144,9 @@ export default function AICallRoom({
     }
   }, []);
 
-  // Daily call frame + Azure recognizer (single recognizer with explicit sourceLang)
+  // Daily call frame + speech recognizer (single recognizer with explicit sourceLang)
   useEffect(() => {
-    console.log('[AzureRecognizer] effect_run', { role, isGuest: !!(inviteToken && callId), hasTokenUrl: !!tokenUrl, hasDailyError: !!dailyError, hasJoined, hasContainer: !!dailyContainerRef.current, inviteToken: !!inviteToken, callId: !!callId });
+    if (DEBUG) console.log('[SpeechRecognizer] effect_run', { role, hasTokenUrl: !!tokenUrl, hasJoined });
     if (!tokenUrl || dailyError || !hasJoined || !dailyContainerRef.current) return;
 
     const container = dailyContainerRef.current;
@@ -188,7 +182,6 @@ export default function AICallRoom({
     callFrame.on('joined-meeting', () => {
       const localAudio = callFrame.localAudio();
       const willStartRecognizer = localAudio !== false;
-      console.log('[AzureRecognizer] joined_meeting', { role, localAudio, localAudioType: typeof localAudio, willStartRecognizer, inviteToken: !!inviteToken });
       hasJoinedCallRef.current = true;
       joinedAtRef.current = Date.now();
       checkAndStartTimer();
@@ -199,9 +192,7 @@ export default function AICallRoom({
         const delayMs = inviteToken ? 1200 : 500;
         log(role, 'joined_meeting', { delayMs });
         setTimeout(() => {
-          const stillUnmuted = callFrame.localAudio() !== false;
-          console.log('[AzureRecognizer] startRecognizer_timeout', { role, mounted, stillUnmuted, startupPath: 'joined-meeting', existingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
-          if (mounted && stillUnmuted) startRecognizer('joined-meeting');
+          if (mounted && callFrame.localAudio() !== false) startRecognizer('joined-meeting');
         }, delayMs);
       } else {
         if (mounted) setAzureReady(true); // UI ready, recognizer will start when unmuted
@@ -212,23 +203,8 @@ export default function AICallRoom({
       const r = recognizerRef.current;
       if (r) {
         log(role, 'recognizer_stopped', { source });
-        console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'stopRecognizerOnMute', caller: source });
         recognizerRef.current = null;
-        try {
-          const p = r.stopContinuousRecognitionAsync?.();
-          if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-            (p as Promise<void>).catch(() => {}).finally(() => {
-              r.close?.();
-              stopMicStream();
-            });
-          } else {
-            r.close?.();
-            stopMicStream();
-          }
-        } catch {
-          try { r.close?.(); } catch {}
-          stopMicStream();
-        }
+        try { r.close(); } catch {}
         if (mounted) {
           setAccumulatedOut('');
           setInterimOut('');
@@ -259,12 +235,8 @@ export default function AICallRoom({
           // during the join handshake (before joined-meeting), which caused premature
           // recognizer creation with a stale mic stream. hasJoinedCallRef is set in the
           // joined-meeting handler, so this check serialises startup correctly.
-          if (!hasJoinedCallRef.current) {
-            console.log('[AzureRecognizer] participant_updated_blocked_pre_join', { role });
-            return;
-          }
+          if (!hasJoinedCallRef.current) return;
           if (callFrame.localAudio() !== true || translationPausedRef.current) return;
-          console.log('[AzureRecognizer] participant_updated_starting_recognizer', { role, existingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
           startRecognizer('participant-updated');
         }, delayMs);
       }
@@ -309,212 +281,73 @@ export default function AICallRoom({
     // Set synchronously before the first await; cleared in the finally block of every exit path.
     let recognizerStarting = false;
 
-    const azureTokenUrl = inviteToken && callId
-      ? `/api/calls/${callId}/guest-azure-token?inviteToken=${encodeURIComponent(inviteToken)}`
-      : '/api/azure-speech-token';
+    const speechTokenUrl = inviteToken && callId
+      ? `/api/calls/${callId}/guest-speech-token?inviteToken=${encodeURIComponent(inviteToken)}`
+      : '/api/speech-token';
 
     async function startRecognizer(startupPath = 'unknown') {
-      console.log('[AzureRecognizer] startRecognizer_called', { role, startupPath, mounted, translationPaused: translationPausedRef.current, hasExistingRecognizer: !!recognizerRef.current, isStarting: recognizerStarting });
       if (!mounted || translationPausedRef.current) return;
-      const r = recognizerRef.current;
-      if (r) return; // Already running
-      // In-flight guard: multiple participant-updated events within the async window
-      // (~200-400ms for token fetch + getUserMedia) would each pass the `if (r)` check
-      // above while recognizerRef.current is still null, creating orphaned recognizers.
-      // This flag is set synchronously before the first await and cleared in finally.
-      if (recognizerStarting) {
-        console.log('[AzureRecognizer] startRecognizer_blocked_inflight', { role });
-        return;
-      }
+      if (recognizerRef.current) return;
+      if (recognizerStarting) return;
       recognizerStarting = true;
       const instId = ++recognizerInstanceCount;
-      log(role, 'recognizer_creating', { instId, activeCount: recognizerInstanceCount });
-      console.log('[AzureRecognizer] token_fetch', { role, azureTokenUrl: azureTokenUrl.slice(0, 80) + '...' });
-      // Tracks a partially-created recognizer so catch can close it if startContinuousRecognitionAsync throws.
-      let localRecognizer: { stopContinuousRecognitionAsync?: () => unknown; close?: () => void } | null = null;
+      console.log('[SpeechRecognizer] Starting recognizer', { startupPath, instId, speechTokenUrl });
+      log(role, 'recognizer_creating', { instId });
       try {
-        const [sdk, tokenRes] = await Promise.all([
-          import('microsoft-cognitiveservices-speech-sdk'),
-          fetch(azureTokenUrl, { credentials: 'include' }),
-        ]);
-
-        const tokenData = await tokenRes.json();
-        if (!tokenRes.ok) {
-          console.error('[AzureRecognizer] token_fetch_failed', { role, status: tokenRes.status, error: tokenData.error });
-          throw new Error(tokenData.error || 'Failed to get Azure token');
-        }
-        console.log('[AzureRecognizer] token_fetch_ok', { role });
-
-        const { token, region } = tokenData;
         const source = mySourceLangRef.current;
-        const target = source === sourceAzure ? targetAzure : sourceAzure;
+        const target = source === sourceUi ? targetUi : sourceUi;
 
-        const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
-        micStreamRef.current = micStream;
-        const trackId = micStream.getAudioTracks()[0]?.id ?? 'none';
-        log(role, 'audio_stream_attached', { instId, trackId });
-        const audioConfig = sdk.AudioConfig.fromStreamInput(micStream);
-
-        const config = sdk.SpeechTranslationConfig.fromAuthorizationToken(token, region);
-        config.speechRecognitionLanguage = source;
-        config.addTargetLanguage(toTranslationTarget(target));
-
-        const recognizer = new sdk.TranslationRecognizer(config, audioConfig);
-        localRecognizer = recognizer; // track so catch can close it if start fails
-        log(role, 'recognizer_created', { instId });
-        recognizerRef.current = recognizer;
-        console.log('[AzureRecognizer] recognizer_ref_set', { role, instId, startupPath });
-
-        // Per-recognizer flag: the canceled handler sets this true for fatal errors (1006/quota).
-        // sessionStopped checks it so it cannot schedule a restart that canceled already prevented.
-        let fatalErrorOccurred = false;
-
-        const validReasons = [sdk.ResultReason.TranslatingSpeech, sdk.ResultReason.TranslatedSpeech];
-        const isValid = (r: { reason?: number }) => r.reason != null && validReasons.includes(r.reason);
-
-        const getTranslation = (result: { text?: string; translations?: { get(key: string, def?: string): string } }) => {
-          const trans = result.translations;
-          if (!trans) return null;
-          const sourceText = (result.text ?? '').trim();
-          for (const k of getTranslationLookupKeys(target)) {
-            const val = trans.get(k, '')?.trim();
-            if (val && val !== sourceText) return val;
-          }
-          return null;
-        };
-
-        const broadcastTranslation = (t: string, isFinal: boolean) => {
-          if (!t) return;
-          if (isFinal) {
-            log(role, 'transcript_published', { instId, textLen: t.length });
-            setAccumulatedOut((prev) => (prev ? prev + ' ' + t : t));
+        const controller = await startSpeechStream(speechTokenUrl, source, target, {
+          onInterim: (text) => {
+            if (mounted) setInterimOut(text);
+          },
+          onFinal: (text) => {
+            if (!mounted) return;
+            log(role, 'transcript_published', { instId, textLen: text.length });
+            setAccumulatedOut((prev) => (prev ? prev + ' ' + text : text));
             setInterimOut('');
             try {
               const localId = callFrame.participants().local?.session_id;
-              callFrame.sendAppMessage({ type: 'translation', translation: t, fromSessionId: localId }, '*');
+              callFrame.sendAppMessage({ type: 'translation', translation: text, fromSessionId: localId }, '*');
             } catch {}
-          } else {
-            setInterimOut(t);
-          }
-        };
-        recognizer.recognizing = (_s: unknown, e: TranslationRecognitionEventArgs) => {
-          if (!mounted || !isValid(e.result)) return;
-          const t = getTranslation(e.result);
-          if (t) {
-            log(role, 'recognizing_event', { instId });
-            broadcastTranslation(t, false);
-          }
-        };
-        recognizer.recognized = (_s: unknown, e: TranslationRecognitionEventArgs) => {
-          if (!mounted || !isValid(e.result)) return;
-          const t = getTranslation(e.result);
-          if (t) {
-            log(role, 'recognized_event', { instId });
-            broadcastTranslation(t, true);
-          }
-        };
-
-        const scheduleRestart = (reason: string) => {
-          if (!mounted || translationPausedRef.current) return;
-          if (recognizerRef.current !== recognizer) return;
-          log(role, 'recognizer_restart_scheduled', { instId, reason });
-          console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'scheduleRestart', reason });
-          recognizerRef.current = null;
-          try {
-            const p = recognizer.stopContinuousRecognitionAsync?.() as Promise<void> | void | undefined;
-            if (p != null && typeof (p as Promise<unknown>).catch === 'function') {
-              (p as Promise<void>).catch(() => {}).finally(() => {
-                recognizer.close?.();
-                stopMicStream();
-              });
-            } else {
-              recognizer.close?.();
-              stopMicStream();
-            }
-          } catch {
-            try { recognizer.close?.(); } catch {}
-            stopMicStream();
-          }
-          const now = Date.now();
-          const elapsed = now - lastRestartAt;
-          if (elapsed < MIN_RESTART_INTERVAL_MS) {
-            log(role, 'restart_throttled', { reason, elapsed, minInterval: MIN_RESTART_INTERVAL_MS });
-            return;
-          }
-          lastRestartAt = now;
-          console.warn(`Azure Speech ${reason}, restarting in 1s...`);
-          setTimeout(() => {
-            if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
-            // If canceled already handled a fatal connection/quota error, do not restart.
-            // This closes the race where sessionStopped fires before canceled and schedules
-            // a restart that canceled would have blocked.
-            if (fatalErrorOccurred) {
-              log(role, 'restart_blocked_fatal', { instId, reason });
-              console.log('[AzureRecognizer] restart_blocked_fatal', { role, reason });
-              return;
-            }
-            startRecognizer('scheduleRestart');
-          }, 1000);
-        };
-
-        recognizer.canceled = (_s: unknown, e: { reason?: number; errorDetails?: string }) => {
-          log(role, 'recognizer_canceled', { instId, reason: e.reason, errorDetails: (e.errorDetails ?? '').slice(0, 80) });
-          console.warn('Azure Speech canceled:', e.reason, e.errorDetails);
-          const details = String(e.errorDetails ?? e.reason ?? '').toLowerCase();
-          const isQuotaOrConnection = details.includes('1006') || details.includes('quota') || details.includes('unable to contact');
-          if (isQuotaOrConnection && mounted) {
-            // Mark fatal FIRST so that sessionStopped (which may fire after this in any order)
-            // will see the flag and skip its scheduleRestart call.
-            fatalErrorOccurred = true;
-            console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'canceled_fatal', startupPath });
+          },
+          onReady: () => {
+            if (mounted) setAzureReady(true);
+          },
+          onError: (err) => {
+            if (mounted) setAzureError(err);
+          },
+          onClose: () => {
             recognizerRef.current = null;
-            try { recognizer.close?.(); } catch {}
-            stopMicStream();
-            setAzureError(t('azureConnectionError'));
-            return;
-          }
-          scheduleRestart(`canceled (${e.errorDetails || e.reason})`);
-        };
-        recognizer.sessionStopped = () => {
-          // If canceled already handled a fatal connection/quota error, do not attempt a restart.
-          // This covers the race where sessionStopped fires before canceled.
-          if (fatalErrorOccurred) {
-            log(role, 'sessionStopped_skipped_fatal', { instId });
-            console.log('[AzureRecognizer] sessionStopped_skipped_fatal', { role, instId });
-            return;
-          }
-          scheduleRestart('session stopped');
-        };
+          },
+        });
 
-        await recognizer.startContinuousRecognitionAsync();
-        localRecognizer = null; // Recognizer is now active — cleanup is the ref's responsibility
+        if (!controller) {
+          if (mounted) setAzureError('Failed to start speech recognition');
+          return;
+        }
+
+        recognizerRef.current = controller;
         log(role, 'recognizer_started', { instId });
-        if (mounted) setAzureReady(true);
 
-        // Proactive token refresh every 8 min (token valid ~10 min) to prevent mid-call expiration
+        // Proactive refresh every 8 min
         tokenRefreshInterval = setInterval(() => {
           if (!mounted || translationPausedRef.current || callFrame.localAudio() !== true) return;
-          if (recognizerRef.current !== recognizer) return;
-          scheduleRestart('token refresh');
+          if (recognizerRef.current !== controller) return;
+          recognizerRef.current = null;
+          try { controller.close(); } catch {}
+          const now = Date.now();
+          if (now - lastRestartAt < MIN_RESTART_INTERVAL_MS) return;
+          lastRestartAt = now;
+          setTimeout(() => {
+            if (mounted && callFrame.localAudio() === true && !translationPausedRef.current)
+              startRecognizer('token refresh');
+          }, 1000);
         }, 8 * 60 * 1000);
       } catch (e) {
-        console.error('Azure Speech init error:', e);
-        // If the recognizer was created but startContinuousRecognitionAsync threw, close it
-        // to prevent it from becoming an orphan that holds an Azure quota slot.
-        if (localRecognizer) {
-          if (recognizerRef.current === localRecognizer) {
-            console.log('[AzureRecognizer] recognizer_ref_cleared', { role, instId, source: 'catch_cleanup', startupPath });
-            recognizerRef.current = null;
-          }
-          try { localRecognizer.close?.(); } catch {}
-          stopMicStream();
-        }
+        console.error('Speech init error:', e);
         if (mounted) setAzureError(e instanceof Error ? e.message : 'Failed to start AI translation');
       } finally {
-        // Always clear the in-flight flag so future legitimate restarts (e.g. after token
-        // refresh or unmute) are not permanently blocked.
         recognizerStarting = false;
       }
     }
@@ -529,25 +362,10 @@ export default function AICallRoom({
       clearInterval(mutePollInterval);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
       const r = recognizerRef.current;
-      console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'effect_cleanup', hadRecognizer: !!r });
       recognizerRef.current = null;
       if (r) {
         log(role, 'recognizer_closed', { source: 'effect-cleanup' });
-        try {
-          const p = r.stopContinuousRecognitionAsync?.();
-          if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-            (p as Promise<void>).catch(() => {}).finally(() => {
-              r.close?.();
-              stopMicStream();
-            });
-          } else {
-            r.close?.();
-            stopMicStream();
-          }
-        } catch {
-          try { r.close?.(); } catch {}
-          stopMicStream();
-        }
+        try { r.close(); } catch {}
       }
       const cf = callRef.current;
       if (cf) {
@@ -560,7 +378,7 @@ export default function AICallRoom({
         } catch {}
       }
     };
-  }, [tokenUrl, dailyError, hasJoined, joinSourceLang, sourceLanguage, targetLanguage, summaryHref, router, endCallIfNotByUser, inviteToken, callId, stopMicStream]);
+  }, [tokenUrl, dailyError, hasJoined, joinSourceLang, sourceLanguage, targetLanguage, summaryHref, router, endCallIfNotByUser, inviteToken, callId]);
 
   // When user toggles sourceLang, restart recognizer (skip on initial mount)
   const prevSourceLangRef = useRef<string | null>(null);
@@ -575,22 +393,8 @@ export default function AICallRoom({
 
     const r = recognizerRef.current;
     if (r) {
-      console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'lang_toggle' });
       recognizerRef.current = null;
-      try {
-        const p = r.stopContinuousRecognitionAsync?.();
-        if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-          (p as Promise<void>).catch(() => {}).finally(() => {
-            r.close?.();
-            stopMicStream();
-          });
-        } else {
-          r.close?.();
-          stopMicStream();
-        }
-      } catch {
-        stopMicStream();
-      }
+      try { r.close(); } catch {}
     }
     setAccumulatedOut('');
     setInterimOut('');
@@ -601,7 +405,7 @@ export default function AICallRoom({
 
     // Reuse startRecognizer so it gets canceled/sessionStopped handlers and token refresh
     setTimeout(() => startRecognizerRef.current('lang-toggle'), 100);
-  }, [mySourceLang, azureReady, hasJoined, sourceLanguage, targetLanguage, inviteToken, callId, stopMicStream]);
+  }, [mySourceLang, azureReady, hasJoined, sourceLanguage, targetLanguage, inviteToken, callId]);
 
   useEffect(() => {
     if (!timerStarted) return;
@@ -659,23 +463,8 @@ export default function AICallRoom({
       if (next) {
         const r = recognizerRef.current;
         if (r) {
-          console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'toggle_pause' });
           recognizerRef.current = null;
-          try {
-            const p = r.stopContinuousRecognitionAsync?.();
-            if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-              (p as Promise<void>).catch(() => {}).finally(() => {
-                r.close?.();
-                stopMicStream();
-              });
-            } else {
-              r.close?.();
-              stopMicStream();
-            }
-          } catch {
-            try { r.close?.(); } catch {}
-            stopMicStream();
-          }
+          try { r.close(); } catch {}
         }
         setAccumulatedOut('');
         setInterimOut('');
@@ -691,23 +480,9 @@ export default function AICallRoom({
     if (isEndingCall) endedByUserRef.current = true;
 
     const r = recognizerRef.current;
-    console.log('[AzureRecognizer] recognizer_ref_cleared', { role, source: 'handleEndOrCancel', hadRecognizer: !!r });
     recognizerRef.current = null;
     if (r) {
-      try {
-        const p = r.stopContinuousRecognitionAsync?.();
-        if (p && typeof (p as Promise<unknown>)?.catch === 'function') {
-          (p as Promise<void>).catch(() => {}).finally(() => {
-            r.close?.();
-            stopMicStream();
-          });
-        } else {
-          r.close?.();
-          stopMicStream();
-        }
-      } catch {
-        stopMicStream();
-      }
+      try { r.close(); } catch {}
     }
 
     if (isEndingCall) {
@@ -806,18 +581,18 @@ export default function AICallRoom({
         <div className="flex gap-3 mb-6">
           <button
             type="button"
-            onClick={() => setJoinSourceLang(sourceAzure)}
+            onClick={() => setJoinSourceLang(sourceUi)}
             className={`flex-1 py-3 px-4 rounded-xl font-medium border-2 transition-colors ${
-              joinSourceLang === sourceAzure ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+              joinSourceLang === sourceUi ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-200 text-slate-600 hover:border-slate-300'
             }`}
           >
             {getLanguageDisplayName(sourceLanguage)}
           </button>
           <button
             type="button"
-            onClick={() => setJoinSourceLang(targetAzure)}
+            onClick={() => setJoinSourceLang(targetUi)}
             className={`flex-1 py-3 px-4 rounded-xl font-medium border-2 transition-colors ${
-              joinSourceLang === targetAzure ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+              joinSourceLang === targetUi ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-200 text-slate-600 hover:border-slate-300'
             }`}
           >
             {getLanguageDisplayName(targetLanguage)}
@@ -857,8 +632,8 @@ export default function AICallRoom({
     );
   }
 
-  const mySourceLabel = mySourceLang === sourceAzure ? getLanguageDisplayName(sourceLanguage) : getLanguageDisplayName(targetLanguage);
-  const otherLangLabel = mySourceLang === sourceAzure ? getLanguageDisplayName(targetLanguage) : getLanguageDisplayName(sourceLanguage);
+  const mySourceLabel = mySourceLang === sourceUi ? getLanguageDisplayName(sourceLanguage) : getLanguageDisplayName(targetLanguage);
+  const otherLangLabel = mySourceLang === sourceUi ? getLanguageDisplayName(targetLanguage) : getLanguageDisplayName(sourceLanguage);
 
   return (
     <div className="max-w-4xl mx-auto" ref={containerRef}>
@@ -873,18 +648,18 @@ export default function AICallRoom({
                   <div className="flex rounded-full border border-slate-200 overflow-hidden">
                     <button
                       type="button"
-                      onClick={() => setMySourceLang(sourceAzure)}
+                      onClick={() => setMySourceLang(sourceUi)}
                       className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                        mySourceLang === sourceAzure ? 'bg-brand-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        mySourceLang === sourceUi ? 'bg-brand-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       {getLanguageDisplayName(sourceLanguage)}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMySourceLang(targetAzure)}
+                      onClick={() => setMySourceLang(targetUi)}
                       className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                        mySourceLang === targetAzure ? 'bg-brand-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        mySourceLang === targetUi ? 'bg-brand-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       {getLanguageDisplayName(targetLanguage)}
