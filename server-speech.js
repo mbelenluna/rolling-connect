@@ -33,7 +33,9 @@ function setupSpeechWebSocket(httpServer) {
     let targetLang = 'es';
     let sourceLangDeepgram = 'en';
     let deepgramWs = null;
+    let deepgramConnecting = false;
     let reconnecting = false;
+    const MAX_BUFFER_CHUNKS = 200; // ~16s of audio max — prevents unbounded memory growth
     const audioBuffer = [];
 
     // Keepalive ping every 30s to prevent Railway/proxy idle timeout
@@ -44,6 +46,8 @@ function setupSpeechWebSocket(httpServer) {
     }, 30000);
 
     const connectDeepgram = () => {
+      if (deepgramConnecting || deepgramWs) return; // Prevent multiple concurrent connections
+      deepgramConnecting = true;
       const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true&punctuate=true`;
       console.log('[SpeechStream] Connecting to Deepgram...');
       deepgramWs = new WebSocket(url, {
@@ -51,6 +55,7 @@ function setupSpeechWebSocket(httpServer) {
       });
 
       deepgramWs.on('open', () => {
+        deepgramConnecting = false;
         console.log('[SpeechStream] Deepgram connected, flushing', audioBuffer.length, 'buffered chunks');
         for (const buf of audioBuffer) deepgramWs.send(buf);
         audioBuffer.length = 0;
@@ -88,12 +93,14 @@ function setupSpeechWebSocket(httpServer) {
       });
 
       deepgramWs.on('error', (err) => {
+        deepgramConnecting = false;
         console.error('[SpeechStream] Deepgram error:', err.message);
         if (clientWs.readyState === WebSocket.OPEN)
           clientWs.send(JSON.stringify({ type: 'error', error: String(err.message) }));
       });
 
       deepgramWs.on('close', () => {
+        deepgramConnecting = false;
         console.log('[SpeechStream] Deepgram connection closed');
         deepgramWs = null;
         // Auto-reconnect if client is still connected
@@ -129,9 +136,10 @@ function setupSpeechWebSocket(httpServer) {
       const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
       if (deepgramWs && deepgramWs.readyState === WebSocket.OPEN) {
         deepgramWs.send(buf);
-      } else {
+      } else if (audioBuffer.length < MAX_BUFFER_CHUNKS) {
         audioBuffer.push(buf);
       }
+      // else: drop chunk — prevents unbounded memory growth during reconnect
     });
 
     clientWs.on('close', () => {
