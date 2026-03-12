@@ -33,7 +33,15 @@ function setupSpeechWebSocket(httpServer) {
     let targetLang = 'es';
     let sourceLangDeepgram = 'en';
     let deepgramWs = null;
+    let reconnecting = false;
     const audioBuffer = [];
+
+    // Keepalive ping every 30s to prevent Railway/proxy idle timeout
+    const keepAliveInterval = setInterval(() => {
+      if (clientWs.readyState === WebSocket.OPEN) {
+        clientWs.ping();
+      }
+    }, 30000);
 
     const connectDeepgram = () => {
       const url = `wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=${sourceLangDeepgram}&model=nova-2&interim_results=true&punctuate=true`;
@@ -88,6 +96,15 @@ function setupSpeechWebSocket(httpServer) {
       deepgramWs.on('close', () => {
         console.log('[SpeechStream] Deepgram connection closed');
         deepgramWs = null;
+        // Auto-reconnect if client is still connected
+        if (clientWs.readyState === WebSocket.OPEN && !reconnecting) {
+          reconnecting = true;
+          console.log('[SpeechStream] Reconnecting to Deepgram in 1s...');
+          setTimeout(() => {
+            reconnecting = false;
+            if (clientWs.readyState === WebSocket.OPEN) connectDeepgram();
+          }, 1000);
+        }
       });
     };
 
@@ -119,6 +136,8 @@ function setupSpeechWebSocket(httpServer) {
 
     clientWs.on('close', () => {
       console.log('[SpeechStream] Client disconnected');
+      clearInterval(keepAliveInterval);
+      reconnecting = true; // prevent any pending reconnect from firing
       if (deepgramWs) {
         deepgramWs.close();
         deepgramWs = null;
