@@ -35,6 +35,7 @@ function setupSpeechWebSocket(httpServer) {
     let deepgramWs = null;
     let deepgramConnecting = false;
     let reconnecting = false;
+    let deepgramConnectionCount = 0; // track reconnects to discard stale buffer
     const MAX_BUFFER_CHUNKS = 200; // ~16s of audio max — prevents unbounded memory growth
     const audioBuffer = [];
 
@@ -56,10 +57,17 @@ function setupSpeechWebSocket(httpServer) {
 
       deepgramWs.on('open', () => {
         deepgramConnecting = false;
-        console.log('[SpeechStream] Deepgram connected, flushing', audioBuffer.length, 'buffered chunks');
-        for (const buf of audioBuffer) deepgramWs.send(buf);
+        deepgramConnectionCount++;
+        if (deepgramConnectionCount === 1) {
+          // First connection: flush pre-buffered audio (arrived before Deepgram was ready)
+          console.log('[SpeechStream] Deepgram connected, flushing', audioBuffer.length, 'buffered chunks');
+          for (const buf of audioBuffer) deepgramWs.send(buf);
+          clientWs.send(JSON.stringify({ type: 'ready' }));
+        } else {
+          // Reconnect: discard stale buffer — sending a burst of old audio garbles transcripts
+          console.log('[SpeechStream] Deepgram reconnected (#' + deepgramConnectionCount + '), discarding', audioBuffer.length, 'stale chunks');
+        }
         audioBuffer.length = 0;
-        clientWs.send(JSON.stringify({ type: 'ready' }));
       });
 
       deepgramWs.on('message', async (data) => {
