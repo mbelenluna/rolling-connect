@@ -36,7 +36,7 @@ function setupSpeechWebSocket(httpServer) {
     let deepgramConnecting = false;
     let reconnecting = false;
     let deepgramConnectionCount = 0; // track reconnects to discard stale buffer
-    const MAX_BUFFER_CHUNKS = 200; // ~16s of audio max — prevents unbounded memory growth
+    const MAX_BUFFER_CHUNKS = 50; // ~4s of audio max — prevents unbounded memory growth
     const audioBuffer = [];
 
     // Keepalive ping every 30s to prevent Railway/proxy idle timeout
