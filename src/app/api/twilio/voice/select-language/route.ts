@@ -123,6 +123,6 @@ export async function POST(req: NextRequest) {
   const conferenceName = `rolling-${result.jobId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
   const waitUrl = `${base}/api/twilio/voice/hold-message`;
   const statusCallback = `${base}/api/twilio/voice/conference-status`;
-  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter. Please hold.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting to an available interpreter.</Say><Dial><Conference beep="onEnter" startConferenceOnEnter="true" endConferenceOnExit="true" participantLabel="caller" waitUrl="${escapeXml(waitUrl)}" waitMethod="POST" statusCallback="${escapeXml(statusCallback)}" statusCallbackEvent="join leave">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
   return twimlWithLog(xml, 'conference_join');
 }

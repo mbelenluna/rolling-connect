@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 import { startBillableInterval, endBillableInterval, finalizeBillableDuration } from '@/lib/call-billing';
+import { deleteTimeout } from '@/lib/hold-timeout-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest) {
           console.log('[twilio/conference-status] caller leave ignored (already ended)', { jobId });
           return new NextResponse('', { status: 200 });
         }
+
+        const callSid = params.CallSid || '';
+        if (callSid) deleteTimeout(callSid);
 
         const endAt = new Date();
         const billableSeconds = await finalizeBillableDuration(call.id, endAt);
