@@ -67,14 +67,14 @@ async function buildHoldResponse(
   <Say voice="alice" language="en-US">Apologies for the inconvenience. Please try again later.</Say>
   <Hangup/>
 </Response>`;
-    logVoiceResponse('hold-message', { branch: 'press_2_hangup', method });
+    logVoiceResponse('hold-message', { branch: 'press_2_hangup' });
     return twiml(xml);
   }
 
   // Press 1: extend wait, return to music
   if (digits === '1') {
     extendTimeout(callSid, EXTEND_MS);
-    logVoiceResponse('hold-message', { branch: 'press_1_extend', method });
+    logVoiceResponse('hold-message', { branch: 'press_1_extend' });
   }
 
   // Initialize or check timeout
@@ -85,7 +85,6 @@ async function buildHoldResponse(
   }
 
   const now = Date.now();
-  const elapsed = now - (timeoutAt - HOLD_TIMEOUT_MS);
 
   // Past timeout: offer Press 1 or 2
   if (now >= timeoutAt) {
@@ -99,7 +98,7 @@ async function buildHoldResponse(
   <Say voice="alice" language="en-US">We did not receive your selection. Please try again later.</Say>
   <Hangup/>
 </Response>`;
-    logVoiceResponse('hold-message', { branch: 'timeout_gather', method, elapsed });
+    logVoiceResponse('hold-message', { branch: 'timeout_gather' });
     return twiml(xml);
   }
 
@@ -110,6 +109,6 @@ async function buildHoldResponse(
   <Play loop="1">${musicUrl}</Play>
   <Redirect method="POST">${holdUrl}</Redirect>
 </Response>`;
-  logVoiceResponse('hold-message', { branch: 'music_loop', method, elapsed });
+  logVoiceResponse('hold-message', { branch: 'music_loop' });
   return twiml(xml);
 }

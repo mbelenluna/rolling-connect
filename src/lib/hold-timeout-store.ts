@@ -8,9 +8,9 @@ const TTL_MS = 30 * 60 * 1000; // 30 min - clean up old entries
 
 function cleanup() {
   const now = Date.now();
-  for (const [k, v] of store.entries()) {
+  Array.from(store.entries()).forEach(([k, v]) => {
     if (v < now) store.delete(k);
-  }
+  });
 }
 
 export function getTimeoutAt(callSid: string): number | undefined {
