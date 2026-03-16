@@ -266,8 +266,9 @@ export default function AICallRoom({
       if (e.data.type === 'translation' && e.data.translation) {
         const t = e.data.translation;
         log(role, 'transcript_received', { from: senderId, textLen: t.length });
-        setPastIn(prev => prev ? `${prev} ${latestInRef.current}`.trim() : latestInRef.current);
+        const prevLatestIn = latestInRef.current;
         latestInRef.current = t;
+        setPastIn(prev => prev ? `${prev} ${prevLatestIn}`.trim() : prevLatestIn);
         setLatestIn(t);
       }
     });
@@ -312,8 +313,9 @@ export default function AICallRoom({
           onFinal: (text) => {
             if (!mounted) return;
             log(role, 'transcript_published', { instId, textLen: text.length });
-            setPastOut(prev => prev ? `${prev} ${latestOutRef.current}`.trim() : latestOutRef.current);
+            const prevLatest = latestOutRef.current;
             latestOutRef.current = text;
+            setPastOut(prev => prev ? `${prev} ${prevLatest}`.trim() : prevLatest);
             setLatestOut(text);
             setInterimOut('');
             try {
