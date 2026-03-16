@@ -73,12 +73,18 @@ export default function AICallRoom({
   if (DEBUG) console.log('[SpeechRecognizer] recognizer_condition_check', { role, isGuest, inviteToken: !!inviteToken, callId: !!callId });
   const containerRef = useRef<HTMLDivElement>(null);
   const dailyContainerRef = useRef<HTMLDivElement>(null);
+  const outBoxRef = useRef<HTMLDivElement>(null);
+  const inBoxRef = useRef<HTMLDivElement>(null);
   const callRef = useRef<ReturnType<typeof Daily.createFrame> | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [accumulatedOut, setAccumulatedOut] = useState(''); // My speech: finalized segments
+  const [pastOut, setPastOut] = useState('');               // My speech: all finalized except latest
+  const latestOutRef = useRef('');
+  const [latestOut, setLatestOut] = useState('');            // My speech: most recent final (blue)
   const [interimOut, setInterimOut] = useState('');          // My speech: current partial (recognizing)
-  const [accumulatedIn, setAccumulatedIn] = useState('');   // Other's speech: accumulated
+  const [pastIn, setPastIn] = useState('');                  // Other's speech: all except latest
+  const latestInRef = useRef('');
+  const [latestIn, setLatestIn] = useState('');              // Other's speech: most recent (blue)
   const [azureError, setAzureError] = useState<string | null>(null);
   const [azureReady, setAzureReady] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -206,7 +212,7 @@ export default function AICallRoom({
         recognizerRef.current = null;
         try { r.close(); } catch {}
         if (mounted) {
-          setAccumulatedOut('');
+          setPastOut(''); latestOutRef.current = ''; setLatestOut('');
           setInterimOut('');
           setTranslationPaused(true);
         }
@@ -260,7 +266,9 @@ export default function AICallRoom({
       if (e.data.type === 'translation' && e.data.translation) {
         const t = e.data.translation;
         log(role, 'transcript_received', { from: senderId, textLen: t.length });
-        setAccumulatedIn((prev) => (prev ? prev + ' ' + t : t));
+        setPastIn(prev => prev ? `${prev} ${latestInRef.current}`.trim() : latestInRef.current);
+        latestInRef.current = t;
+        setLatestIn(t);
       }
     });
     callFrame.on('left-meeting', () => {
@@ -304,7 +312,9 @@ export default function AICallRoom({
           onFinal: (text) => {
             if (!mounted) return;
             log(role, 'transcript_published', { instId, textLen: text.length });
-            setAccumulatedOut((prev) => (prev ? prev + ' ' + text : text));
+            setPastOut(prev => prev ? `${prev} ${latestOutRef.current}`.trim() : latestOutRef.current);
+            latestOutRef.current = text;
+            setLatestOut(text);
             setInterimOut('');
             try {
               const localId = callFrame.participants().local?.session_id;
@@ -407,7 +417,7 @@ export default function AICallRoom({
       recognizerRef.current = null;
       try { r.close(); } catch {}
     }
-    setAccumulatedOut('');
+    setPastOut(''); latestOutRef.current = ''; setLatestOut('');
     setInterimOut('');
     callRef.current?.setUserData({ sourceLang: mySourceLang });
 
@@ -426,6 +436,15 @@ export default function AICallRoom({
     }, 1000);
     return () => clearInterval(interval);
   }, [timerStarted]);
+
+  // Auto-scroll translation boxes to bottom when new text arrives
+  useEffect(() => {
+    if (outBoxRef.current) outBoxRef.current.scrollTop = outBoxRef.current.scrollHeight;
+  }, [pastOut, latestOut, interimOut]);
+
+  useEffect(() => {
+    if (inBoxRef.current) inBoxRef.current.scrollTop = inBoxRef.current.scrollHeight;
+  }, [pastIn, latestIn]);
 
   const hasEndCall = !!endCallEndpoint || (!!callId && !!inviteToken);
   useEffect(() => {
@@ -477,7 +496,7 @@ export default function AICallRoom({
           recognizerRef.current = null;
           try { r.close(); } catch {}
         }
-        setAccumulatedOut('');
+        setPastOut(''); latestOutRef.current = ''; setLatestOut('');
         setInterimOut('');
       } else {
         // Resuming: start recognizer (participant-updated may not fire immediately)
@@ -730,11 +749,15 @@ export default function AICallRoom({
                     <p className="text-red-600 text-xs mt-1">{azureError}</p>
                   </div>
                 ) : azureReady ? (
-                  <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
+                  <div ref={outBoxRef} className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
                     {translationPaused ? (
                       <p className="text-amber-700 text-sm italic">{t('mutedMessage')}</p>
-                    ) : (accumulatedOut || interimOut) ? (
-                      <p className="text-slate-800 whitespace-pre-wrap break-words">{accumulatedOut}{interimOut ? (accumulatedOut ? ' ' : '') + interimOut : ''}</p>
+                    ) : (pastOut || latestOut || interimOut) ? (
+                      <p className="whitespace-pre-wrap break-words">
+                        {pastOut && <span className="text-slate-800">{pastOut}{' '}</span>}
+                        {latestOut && <span className="text-blue-600">{latestOut}</span>}
+                        {interimOut && <span className="text-slate-400 italic">{(pastOut || latestOut) ? ' ' : ''}{interimOut}</span>}
+                      </p>
                     ) : (
                       <p className="text-slate-500 text-sm italic">{t('speakAndTranslate')}</p>
                     )}
@@ -747,9 +770,12 @@ export default function AICallRoom({
                 <h2 className="text-sm font-semibold text-brand-900 mb-2">
                   {t('otherPartySpeaks')} ({otherLangLabel} → {mySourceLabel})
                 </h2>
-                <div className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
-                  {accumulatedIn ? (
-                    <p className="text-slate-800 whitespace-pre-wrap break-words">{accumulatedIn}</p>
+                <div ref={inBoxRef} className="min-h-[56px] p-3 bg-white rounded-lg border border-brand-200 overflow-y-auto max-h-[200px]">
+                  {(pastIn || latestIn) ? (
+                    <p className="whitespace-pre-wrap break-words">
+                      {pastIn && <span className="text-slate-800">{pastIn}{' '}</span>}
+                      {latestIn && <span className="text-blue-600">{latestIn}</span>}
+                    </p>
                   ) : (
                     <p className="text-slate-500 text-sm italic">{t('whenOtherSpeaks')}</p>
                   )}
