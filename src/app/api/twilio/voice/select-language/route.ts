@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     return twimlWithLog(xml, 'conference_join');
   } catch (err) {
     console.error('[twilio/select-language] Unhandled error:', err);
-    logVoiceResponse('select-language', { branch: 'unhandled_error', error: String(err) });
+    logVoiceResponse('select-language', { branch: 'unhandled_error' });
     return twiml(ERROR_TWIML);
   }
 }
