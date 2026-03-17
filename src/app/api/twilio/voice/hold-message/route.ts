@@ -15,10 +15,8 @@ export const dynamic = 'force-dynamic';
 const HOLD_TIMEOUT_MS = 60_000; // 60 seconds before offering Press 1/2
 const EXTEND_MS = 60_000; // Press 1 adds 60 seconds
 
-// Twilio's classical hold music (30–60 sec track). Override with HOLD_MUSIC_URL env.
-const DEFAULT_HOLD_MUSIC =
-  process.env.HOLD_MUSIC_URL ||
-  'https://s3.amazonaws.com/com.twilio.sounds.music/classical/01.mp3';
+// Use HOLD_MUSIC_URL env var if set, otherwise fall back to a pure Pause (no external URL dependency).
+const HOLD_MUSIC_URL = process.env.HOLD_MUSIC_URL || '';
 
 function escapeXml(s: string): string {
   return s
@@ -35,6 +33,16 @@ function twiml(xml: string) {
   });
 }
 
+// Safe fallback TwiML — returned if anything throws, prevents Twilio "application error"
+function safeFallback(holdUrl: string): NextResponse {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Pause length="30"/>
+  <Redirect method="POST">${holdUrl}</Redirect>
+</Response>`;
+  return twiml(xml);
+}
+
 export async function GET(req: NextRequest) {
   const params = Object.fromEntries(req.nextUrl.searchParams);
   logVoiceRequest('hold-message', { method: 'GET', callSid: params.CallSid });
@@ -42,12 +50,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const params = Object.fromEntries(new URLSearchParams(body));
-  const callSid = params.CallSid || '';
-  const digits = params.Digits || '';
-  logVoiceRequest('hold-message', { method: 'POST', callSid, digits });
-  return buildHoldResponse(callSid, digits, 'POST');
+  try {
+    const body = await req.text();
+    const params = Object.fromEntries(new URLSearchParams(body));
+    const callSid = params.CallSid || '';
+    const digits = params.Digits || '';
+    logVoiceRequest('hold-message', { method: 'POST', callSid, digits });
+    return await buildHoldResponse(callSid, digits, 'POST');
+  } catch (err) {
+    console.error('[hold-message] Unhandled error, returning safe fallback:', err);
+    const base = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+    return safeFallback(`${base}/api/twilio/voice/hold-message`);
+  }
 }
 
 async function buildHoldResponse(
@@ -102,13 +116,31 @@ async function buildHoldResponse(
     return twiml(xml);
   }
 
-  // Within timeout: play hold music, then re-check
-  const musicUrl = escapeXml(DEFAULT_HOLD_MUSIC);
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  // Within timeout: play hold music (if URL configured) or pause, then re-check.
+  // Using <Pause> + <Redirect> instead of <Play> + <Redirect> avoids rapid redirect
+  // loops if the music URL is unreachable (Twilio skips a failed <Play> instantly,
+  // causing tight loops that crash the server and trigger "application error").
+  const escapedHoldUrl = escapeXml(holdUrl);
+  let xml: string;
+  if (HOLD_MUSIC_URL) {
+    const musicUrl = escapeXml(HOLD_MUSIC_URL);
+    // <Pause length="5"> after Play acts as a safety buffer: if Play fails and is
+    // skipped instantly, the 5-second pause prevents a tight redirect loop.
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Play loop="1">${musicUrl}</Play>
-  <Redirect method="POST">${holdUrl}</Redirect>
+  <Pause length="5"/>
+  <Redirect method="POST">${escapedHoldUrl}</Redirect>
 </Response>`;
-  logVoiceResponse('hold-message', { branch: 'music_loop' });
+    logVoiceResponse('hold-message', { branch: 'music_loop' });
+  } else {
+    // No music URL — use a 30-second silent pause. Completely reliable, no external dependency.
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Pause length="30"/>
+  <Redirect method="POST">${escapedHoldUrl}</Redirect>
+</Response>`;
+    logVoiceResponse('hold-message', { branch: 'pause_loop' });
+  }
   return twiml(xml);
 }
