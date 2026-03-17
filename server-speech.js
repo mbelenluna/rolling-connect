@@ -213,10 +213,10 @@ function setupSpeechWebSocket(httpServer) {
 }
 
 // Allow standalone run: node server-speech.js
+// Railway injects PORT; SPEECH_WS_PORT is a fallback for local testing.
 if (require.main === module) {
   require('dotenv').config();
-  global.__speechTokenStore = global.__speechTokenStore || new Map();
-  const port = parseInt(process.env.SPEECH_WS_PORT || '3005', 10);
+  const port = parseInt(process.env.PORT || process.env.SPEECH_WS_PORT || '3000', 10);
   const httpServer = createServer((req, res) => {
     const { pathname } = parse(req.url, true);
     if (pathname === '/health') {
@@ -228,8 +228,8 @@ if (require.main === module) {
     res.end();
   });
   setupSpeechWebSocket(httpServer);
-  httpServer.listen(port, () => {
-    console.log(`[SpeechStream] Standalone server running on ws://localhost:${port}`);
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`[SpeechStream] Standalone server running on port ${port}`);
   });
 }
 

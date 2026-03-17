@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { verifyInviteToken } from '@/lib/invite-token';
-import crypto from 'crypto';
 const { create: createToken } = require('../../../../../lib/speech-token-store');
 
 export const dynamic = 'force-dynamic';
@@ -27,8 +26,7 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid or expired invite token' }, { status: 401 });
   }
 
-  const token = crypto.randomBytes(32).toString('hex');
-  createToken(token, { role: 'guest', callId });
+  const token = createToken({ role: 'guest', callId });
 
   return NextResponse.json({ token });
 }

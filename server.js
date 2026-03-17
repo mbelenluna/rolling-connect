@@ -1,11 +1,8 @@
 require('dotenv').config();
-// Shared token store - must be set before any module loads speech-token-store
-global.__speechTokenStore = new Map();
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
-const { setupSpeechWebSocket } = require('./server-speech');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -19,8 +16,6 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url, true);
     await handle(req, res, parsedUrl);
   });
-
-  setupSpeechWebSocket(httpServer);
 
   const io = new Server(httpServer, {
     path: '/api/socketio',
@@ -60,6 +55,5 @@ app.prepare().then(() => {
     })
     .listen(port, '0.0.0.0', () => {
       console.log(`> Ready on http://0.0.0.0:${port}`);
-      console.log(`> Speech WebSocket ready on /api/speech-stream`);
     });
 });

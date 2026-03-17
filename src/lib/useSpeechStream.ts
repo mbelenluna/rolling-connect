@@ -59,10 +59,18 @@ export async function startSpeechStream(
   }
 
   const { token } = tokenData;
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Speech WebSocket runs on the same server/port as the main app (no separate port needed)
-  const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
-  const wsUrl = `${protocol}//${host}/api/speech-stream?token=${token}`;
+  // NEXT_PUBLIC_SPEECH_WS_URL points to the dedicated speech Railway service.
+  // Falls back to the same host for local development (when running everything together).
+  const speechBase = process.env.NEXT_PUBLIC_SPEECH_WS_URL;
+  let wsUrl: string;
+  if (speechBase) {
+    // Convert https://... → wss://...  or  http://... → ws://...
+    wsUrl = `${speechBase.replace(/^http/, 'ws')}/api/speech-stream?token=${token}`;
+  } else {
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
+    wsUrl = `${protocol}//${host}/api/speech-stream?token=${token}`;
+  }
   console.log('[SpeechStream] Connecting to', wsUrl.replace(/token=[^&]+/, 'token=***'));
   const ws = new WebSocket(wsUrl);
 
