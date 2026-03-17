@@ -45,20 +45,20 @@ export default function TwilioCallRoom({
   useEffect(() => {
     if (!twilioToken || !conferenceName) return;
 
-    // micStream is declared here so the cleanup function can always stop it,
-    // even if the async setup is still in progress when the component unmounts.
-    let micStream: MediaStream | null = null;
     let destroyed = false;
 
     (async () => {
       // Diagnostic: token length (do not log full token)
       console.log('[TwilioCallRoom] token received', { tokenLength: twilioToken?.length ?? 0, conferenceName });
 
-      // Explicitly request microphone access before connecting.
-      // If the browser silently denies the mic, the SDK connects but sends no audio
-      // causing one-way audio (interpreter hears caller, but caller can't hear interpreter).
+      // Check mic permission then IMMEDIATELY release the stream.
+      // If we hold the stream open, the Twilio SDK's own internal getUserMedia
+      // competes with ours and may get an empty track → one-way audio where
+      // the caller cannot hear the interpreter (downlink works, uplink is silent).
+      // Stopping tracks here does NOT revoke browser permission for the origin.
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const permStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        permStream.getTracks().forEach((t) => t.stop());
       } catch {
         if (destroyed) return;
         setError('Microphone access was denied. Please allow microphone access in your browser settings and refresh the page.');
@@ -66,10 +66,7 @@ export default function TwilioCallRoom({
         return;
       }
 
-      if (destroyed) {
-        micStream.getTracks().forEach((t) => t.stop());
-        return;
-      }
+      if (destroyed) return;
 
       const device = new Device(twilioToken, {
         logLevel: 1,
@@ -127,7 +124,6 @@ export default function TwilioCallRoom({
       deviceRef.current?.destroy();
       deviceRef.current = null;
       callRef.current = null;
-      micStream?.getTracks().forEach((t) => t.stop());
     };
   }, [twilioToken, conferenceName, backHref, router]);
 
