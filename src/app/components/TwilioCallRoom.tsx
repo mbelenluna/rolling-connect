@@ -45,65 +45,89 @@ export default function TwilioCallRoom({
   useEffect(() => {
     if (!twilioToken || !conferenceName) return;
 
-    // Diagnostic: token length (do not log full token)
-    if (typeof window !== 'undefined') {
+    // micStream is declared here so the cleanup function can always stop it,
+    // even if the async setup is still in progress when the component unmounts.
+    let micStream: MediaStream | null = null;
+    let destroyed = false;
+
+    (async () => {
+      // Diagnostic: token length (do not log full token)
       console.log('[TwilioCallRoom] token received', { tokenLength: twilioToken?.length ?? 0, conferenceName });
-    }
 
-    const device = new Device(twilioToken, {
-      logLevel: 0,
-      codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-    });
+      // Explicitly request microphone access before connecting.
+      // If the browser silently denies the mic, the SDK connects but sends no audio
+      // causing one-way audio (interpreter hears caller, but caller can't hear interpreter).
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch {
+        if (destroyed) return;
+        setError('Microphone access was denied. Please allow microphone access in your browser settings and refresh the page.');
+        setStatus('error');
+        return;
+      }
 
-    deviceRef.current = device;
+      if (destroyed) {
+        micStream.getTracks().forEach((t) => t.stop());
+        return;
+      }
 
-    device.on('registered', () => {
-      if (typeof window !== 'undefined') console.log('[TwilioCallRoom] device registered, connecting to conference');
-      setStatus('connecting');
-      device
-        .connect({ params: { conferenceName } })
-        .then((call) => {
-          callRef.current = call;
-          call.on('accept', () => {
-            setStatus('connected');
-            timerStartRef.current = Date.now();
-            setTimerStarted(true);
-          });
-          call.on('disconnect', () => {
-            setStatus('disconnected');
-            device.destroy();
-            deviceRef.current = null;
-            callRef.current = null;
-            router.replace(backHref);
-          });
-          call.on('error', (err: { message?: string }) => {
-            console.error('[TwilioCallRoom] call error:', err);
-            setError(err?.message || 'Call failed');
+      const device = new Device(twilioToken, {
+        logLevel: 1,
+        codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
+      });
+
+      deviceRef.current = device;
+
+      device.on('registered', () => {
+        console.log('[TwilioCallRoom] device registered, connecting to conference');
+        setStatus('connecting');
+        device
+          .connect({ params: { conferenceName } })
+          .then((call) => {
+            callRef.current = call;
+            call.on('accept', () => {
+              setStatus('connected');
+              timerStartRef.current = Date.now();
+              setTimerStarted(true);
+            });
+            call.on('disconnect', () => {
+              setStatus('disconnected');
+              device.destroy();
+              deviceRef.current = null;
+              callRef.current = null;
+              router.replace(backHref);
+            });
+            call.on('error', (err: { message?: string }) => {
+              console.error('[TwilioCallRoom] call error:', err);
+              setError(err?.message || 'Call failed');
+              setStatus('error');
+            });
+          })
+          .catch((err: { message?: string }) => {
+            console.error('[TwilioCallRoom] connect error:', err);
+            setError(err?.message || 'Failed to connect');
             setStatus('error');
           });
-        })
-        .catch((err: { message?: string }) => {
-          console.error('[TwilioCallRoom] connect error:', err);
-          setError(err?.message || 'Failed to connect');
-          setStatus('error');
-        });
-    });
+      });
 
-    device.on('error', (err) => {
-      console.error('[TwilioCallRoom] device error:', err?.message ?? err, err);
-      setError(err.message || 'Connection failed');
-      setStatus('error');
-    });
+      device.on('error', (err) => {
+        console.error('[TwilioCallRoom] device error:', err?.message ?? err, err);
+        setError(err.message || 'Connection failed');
+        setStatus('error');
+      });
 
-    device.register();
+      device.register();
+    })();
 
     return () => {
+      destroyed = true;
       if (callRef.current) {
         callRef.current.disconnect();
       }
-      device.destroy();
+      deviceRef.current?.destroy();
       deviceRef.current = null;
       callRef.current = null;
+      micStream?.getTracks().forEach((t) => t.stop());
     };
   }, [twilioToken, conferenceName, backHref, router]);
 
