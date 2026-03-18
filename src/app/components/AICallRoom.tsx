@@ -87,6 +87,8 @@ export default function AICallRoom({
   const [latestIn, setLatestIn] = useState('');              // Other's speech: most recent (blue)
   const [azureError, setAzureError] = useState<string | null>(null);
   const [azureReady, setAzureReady] = useState(false);
+  const [speechReconnecting, setSpeechReconnecting] = useState(false);
+  const azureReadyRef = useRef(false); // ref copy so closure callbacks can read latest value
   const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const timerStartRef = useRef<number | null>(null);
@@ -324,10 +326,23 @@ export default function AICallRoom({
             } catch {}
           },
           onReady: () => {
-            if (mounted) setAzureReady(true);
+            if (mounted) {
+              azureReadyRef.current = true;
+              setAzureReady(true);
+              setSpeechReconnecting(false);
+              setAzureError(null);
+            }
           },
           onError: (err) => {
-            if (mounted) setAzureError(err);
+            if (mounted) {
+              if (azureReadyRef.current) {
+                // Was previously connected — this is a transient blip, show spinner not error
+                setSpeechReconnecting(true);
+              } else {
+                // Never connected — show actual error
+                setAzureError(err);
+              }
+            }
           },
           onClose: () => {
             recognizerRef.current = null;
@@ -336,11 +351,19 @@ export default function AICallRoom({
               const now = Date.now();
               if (now - lastRestartAt > MIN_RESTART_INTERVAL_MS) {
                 lastRestartAt = now;
+                setSpeechReconnecting(true);
+                setAzureError(null);
                 console.log('[SpeechStream] WebSocket closed unexpectedly — restarting recognizer in 2s');
                 setTimeout(() => {
                   if (mounted && !translationPausedRef.current) startRecognizer('ws-reconnect');
                 }, 2000);
+              } else {
+                // Rate-limited — can't reconnect yet, show error
+                setSpeechReconnecting(false);
+                if (azureReadyRef.current) setAzureError('Translation disconnected. Refresh if this persists.');
               }
+            } else {
+              setSpeechReconnecting(false);
             }
           },
         });
@@ -745,7 +768,12 @@ export default function AICallRoom({
                 <h2 className="text-sm font-semibold text-brand-900 mb-2">
                   {t('youSpeak')} ({mySourceLabel} → {otherLangLabel})
                 </h2>
-                {azureError ? (
+                {speechReconnecting ? (
+                  <div className="min-h-[56px] p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
+                    <div className="animate-spin w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full flex-shrink-0" />
+                    <p className="text-amber-700 text-sm font-medium">Reconnecting translation…</p>
+                  </div>
+                ) : azureError ? (
                   <div className="min-h-[56px] p-3 bg-red-50 rounded-lg border border-red-200">
                     <p className="text-red-700 text-sm font-medium">⚠ AI translation error</p>
                     <p className="text-red-600 text-xs mt-1">{azureError}</p>
