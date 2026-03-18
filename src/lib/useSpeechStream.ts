@@ -64,8 +64,19 @@ export async function startSpeechStream(
   const speechBase = process.env.NEXT_PUBLIC_SPEECH_WS_URL;
   let wsUrl: string;
   if (speechBase) {
-    // Convert https://... → wss://...  or  http://... → ws://...
-    wsUrl = `${speechBase.replace(/^http/, 'ws')}/api/speech-stream?token=${token}`;
+    // Normalise to a WebSocket URL regardless of how the env var was typed:
+    // "https://..." → "wss://...", "http://..." → "ws://...",
+    // "wss://..." / "ws://..." → unchanged,
+    // bare hostname (no protocol) → "wss://..."
+    let wsBase: string;
+    if (/^https?:\/\//.test(speechBase)) {
+      wsBase = speechBase.replace(/^http/, 'ws');
+    } else if (/^wss?:\/\//.test(speechBase)) {
+      wsBase = speechBase;
+    } else {
+      wsBase = `wss://${speechBase}`;
+    }
+    wsUrl = `${wsBase}/api/speech-stream?token=${token}`;
   } else {
     const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
