@@ -421,27 +421,35 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
           </div>
         </div>
         {phoneSessionCode && (
-          <div className="px-4 py-2 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Join by phone</span>
-            {phoneNumber && (
-              <span className="text-sm text-slate-700 font-mono">{phoneNumber}</span>
-            )}
-            {phoneNumber && <span className="text-slate-300 hidden sm:inline">·</span>}
-            <span className="text-xs text-slate-500">Session code:</span>
-            <span className="text-sm font-mono font-semibold text-slate-800 tracking-widest">{phoneSessionCode}</span>
-            <button
-              onClick={async () => {
-                const ok = await copyToClipboard(phoneSessionCode);
-                if (ok) {
-                  setPhoneCodeCopied(true);
-                  setTimeout(() => setPhoneCodeCopied(false), 2500);
-                }
-              }}
-              className="text-xs px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300 transition-colors"
-              title="Copy session code"
-            >
-              {phoneCodeCopied ? '✓ Copied' : 'Copy code'}
-            </button>
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Invite others to join via phone</p>
+            <ol className="list-none space-y-0.5">
+              {phoneNumber && (
+                <li className="text-sm text-slate-700">
+                  <span className="font-medium text-slate-500 mr-1">1)</span>
+                  Ask them to call{' '}
+                  <span className="font-mono font-semibold text-slate-900">{phoneNumber}</span>
+                </li>
+              )}
+              <li className="text-sm text-slate-700">
+                <span className="font-medium text-slate-500 mr-1">{phoneNumber ? '2)' : '1)'}</span>
+                They should select option 2, then enter the following session code followed by the pound key{' '}
+                <span className="font-mono font-bold text-slate-900 tracking-widest">{phoneSessionCode}</span>
+                <button
+                  onClick={async () => {
+                    const ok = await copyToClipboard(phoneSessionCode);
+                    if (ok) {
+                      setPhoneCodeCopied(true);
+                      setTimeout(() => setPhoneCodeCopied(false), 2500);
+                    }
+                  }}
+                  className="ml-2 text-xs px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300 transition-colors"
+                  title="Copy session code"
+                >
+                  {phoneCodeCopied ? '✓ Copied' : 'Copy code'}
+                </button>
+              </li>
+            </ol>
           </div>
         )}
         {showEndConfirm && (
