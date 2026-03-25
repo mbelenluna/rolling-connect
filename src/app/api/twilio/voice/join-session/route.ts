@@ -104,7 +104,6 @@ async function handleJoinSession(req: NextRequest) {
     url: req.url,
     step,
     digits,
-    attempt,
     callSid: params.CallSid,
     from: params.From,
     to: params.To,
@@ -181,7 +180,7 @@ async function handleJoinSession(req: NextRequest) {
       const conferenceName = roomId;
       const statusCallback = escapeXml(`${getBaseUrl()}/api/twilio/voice/conference-status`);
 
-      logVoiceResponse('join-session', { step, branch: 'joining_conference', conferenceName });
+      logVoiceResponse('join-session', { step, branch: 'joining_conference' });
       console.log('[twilio/join-session] joining_conference', { conferenceName, callId: call.id });
 
       // startConferenceOnEnter="true" so the guest can join even if the original
@@ -213,7 +212,7 @@ async function handleJoinSession(req: NextRequest) {
     }
 
     const sipUri = `sip:${encodeURIComponent(tokenResult.token)}@sip.daily.co`;
-    logVoiceResponse('join-session', { step, branch: 'joining_daily_sip', roomName });
+    logVoiceResponse('join-session', { step, branch: 'joining_daily_sip' });
     console.log('[twilio/join-session] joining_daily_sip', { roomName, callId: call.id });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial><Sip>${escapeXml(sipUri)}</Sip></Dial></Response>`;
