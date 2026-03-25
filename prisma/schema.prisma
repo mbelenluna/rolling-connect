@@ -225,6 +225,7 @@ model Call {
   id                    String           @id @default(uuid())
   jobId                 String           @unique @map("job_id")
   roomId                String           @map("room_id")
+  phoneSessionCode      String?          @unique @map("phone_session_code")
   startedAt             DateTime?        @map("started_at")
   endedAt               DateTime?       @map("ended_at")
   durationSeconds       Int?             @map("duration_seconds")

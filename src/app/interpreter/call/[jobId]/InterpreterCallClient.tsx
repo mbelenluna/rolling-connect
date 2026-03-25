@@ -20,6 +20,8 @@ export default function InterpreterCallClient() {
     isPhoneOriginated?: boolean;
     twilioToken?: string;
     conferenceName?: string;
+    phoneSessionCode?: string | null;
+    phoneNumber?: string | null;
   } | null>(null);
   const [error, setError] = useState('');
 
@@ -78,6 +80,8 @@ export default function InterpreterCallClient() {
       endForEveryoneEndpoint={data.callId ? `/api/calls/${data.callId}/end-for-everyone` : null}
       inviteLinkEndpoint={data.callId ? `/api/calls/${data.callId}/invite-link` : null}
       role="interpreter"
+      phoneSessionCode={data.phoneSessionCode}
+      phoneNumber={data.phoneNumber}
     />
   );
 }

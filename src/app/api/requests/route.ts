@@ -126,10 +126,13 @@ export async function POST(req: Request) {
           assignedInterpreterId: null,
         },
       });
+      const { generateUniquePhoneSessionCode } = await import('@/lib/session-code');
+      const phoneSessionCode = await generateUniquePhoneSessionCode();
       await prisma.call.create({
         data: {
           jobId: job.id,
           roomId: `room_${job.id}_${Date.now()}`,
+          phoneSessionCode,
         },
       });
       return NextResponse.json({

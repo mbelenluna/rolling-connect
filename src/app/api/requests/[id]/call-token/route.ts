@@ -77,5 +77,7 @@ export async function GET(
     interpretationType: request.interpretationType ?? 'human',
     sourceLanguage: request.sourceLanguage,
     targetLanguage: request.targetLanguage,
+    phoneSessionCode: call.phoneSessionCode ?? null,
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? null,
   });
 }

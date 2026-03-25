@@ -34,9 +34,13 @@ type CallRoomProps = {
   guestLeaveEndpoint?: string | null;
   inviteToken?: string | null;
   role?: 'client' | 'interpreter';
+  /** Phone number callers should dial to join this session. */
+  phoneNumber?: string | null;
+  /** Unique 10-digit session code displayed so phone callers can join this session. */
+  phoneSessionCode?: string | null;
 };
 
-export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, leaveEndpoint, endForEveryoneEndpoint, inviteLinkEndpoint, guestLeaveEndpoint, inviteToken, role = 'interpreter' }: CallRoomProps) {
+export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, summaryHref, dailyError, cancelEndpoint, endCallEndpoint, leaveEndpoint, endForEveryoneEndpoint, inviteLinkEndpoint, guestLeaveEndpoint, inviteToken, role = 'interpreter', phoneNumber, phoneSessionCode }: CallRoomProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { locale } = useLanguage();
@@ -47,6 +51,7 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
   const [timerStarted, setTimerStarted] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [phoneCodeCopied, setPhoneCodeCopied] = useState(false);
   const timerStartRef = useRef<number | null>(null);
   const endedByUserRef = useRef(false);
   const endCallEndpointRef = useRef(endCallEndpoint);
@@ -373,7 +378,7 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
                   }`}
                   title="Copy meeting link to invite others"
                 >
-                  Invite
+                  Invite Link
                 </button>
                 {inviteCopied && (
                   <span className="text-xs text-green-600 mt-1 font-medium">Link copied!</span>
@@ -415,6 +420,28 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
             )}
           </div>
         </div>
+        {phoneNumber && phoneSessionCode && (
+          <div className="px-4 py-2 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Join by phone</span>
+            <span className="text-sm text-slate-700 font-mono">{phoneNumber}</span>
+            <span className="text-slate-300 hidden sm:inline">·</span>
+            <span className="text-xs text-slate-500">Session code:</span>
+            <span className="text-sm font-mono font-semibold text-slate-800 tracking-widest">{phoneSessionCode}</span>
+            <button
+              onClick={async () => {
+                const ok = await copyToClipboard(phoneSessionCode);
+                if (ok) {
+                  setPhoneCodeCopied(true);
+                  setTimeout(() => setPhoneCodeCopied(false), 2500);
+                }
+              }}
+              className="text-xs px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300 transition-colors"
+              title="Copy session code"
+            >
+              {phoneCodeCopied ? '✓ Copied' : 'Copy code'}
+            </button>
+          </div>
+        )}
         {showEndConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">

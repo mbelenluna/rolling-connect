@@ -96,11 +96,46 @@ async function handleIncoming(req: NextRequest) {
   });
 
   if (!step) {
-    // Initial call: greet and collect client ID (Say inside Gather, no actionOnEmptyResult to avoid carryover)
+    // Initial call: present main menu - Press 1 to request interpretation, Press 2 to join existing session
+    const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=route_choice`);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="1" action="${actionUrl}" method="POST" timeout="10" input="dtmf"><Say voice="alice" language="en-US">Thank you for calling Rolling Connect. Press 1 to request interpretation now. Press 2 to join an existing session with a session code.</Say></Gather><Say voice="alice" language="en-US">We did not receive your selection. Goodbye.</Say><Hangup/></Response>`;
+    logVoiceResponse('incoming', { step: null, branch: 'main_menu', twimlPreview: xml, twimlLength: xml.length });
+    return twimlWithLog(xml, 'main_menu');
+  }
+
+  if (step === 'route_choice') {
+    const choice = digits.trim();
+    if (choice === '1') {
+      // Request interpretation: collect client ID
+      const collectUrl = escapeXml(`${getWebhookBaseUrl()}?step=collect_client`);
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Redirect method="POST">${collectUrl}</Redirect></Response>`;
+      console.log('[twilio/incoming] route_choice', { step, branch: 'route_to_request', choice });
+      logVoiceResponse('incoming', { step, branch: 'route_to_request' });
+      return twimlWithLog(xml, 'route_to_request');
+    }
+    if (choice === '2') {
+      // Join existing session: redirect to join-session route
+      const base = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      const joinUrl = escapeXml(`${base.replace(/\/$/, '')}/api/twilio/voice/join-session`);
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Redirect method="POST">${joinUrl}</Redirect></Response>`;
+      console.log('[twilio/incoming] route_choice', { step, branch: 'route_to_join_session', choice });
+      logVoiceResponse('incoming', { step, branch: 'route_to_join_session' });
+      return twimlWithLog(xml, 'route_to_join_session');
+    }
+    // Invalid choice: replay menu
+    const baseUrl = escapeXml(getWebhookBaseUrl());
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Invalid selection. Please try again.</Say><Redirect method="POST">${baseUrl}</Redirect></Response>`;
+    console.log('[twilio/incoming] route_choice_invalid', { step, choice });
+    logVoiceResponse('incoming', { step, branch: 'route_choice_invalid' });
+    return twimlWithLog(xml, 'route_choice_invalid');
+  }
+
+  if (step === 'collect_client') {
+    // Collect 6-digit client ID (same logic as original greeting)
     const actionUrl = escapeXml(`${getWebhookBaseUrl()}?step=validate_client`);
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" input="dtmf"><Say voice="alice" language="en-US">Thank you for calling Rolling Connect. Please enter your six-digit client code followed by the pound key.</Say></Gather><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`;
-    logVoiceResponse('incoming', { step: null, branch: 'greeting', twimlPreview: xml, twimlLength: xml.length });
-    return twimlWithLog(xml, 'greeting');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Gather numDigits="6" finishOnKey="#" action="${actionUrl}" method="POST" timeout="15" input="dtmf"><Say voice="alice" language="en-US">Please enter your six-digit client code followed by the pound key.</Say></Gather><Say voice="alice" language="en-US">We did not receive your client ID. Goodbye.</Say><Hangup/></Response>`;
+    logVoiceResponse('incoming', { step, branch: 'collect_client', twimlPreview: xml });
+    return twimlWithLog(xml, 'collect_client');
   }
 
   if (step === 'validate_client') {

@@ -74,6 +74,8 @@ export async function GET(
       isPhoneOriginated: true,
       twilioToken: tokenResult.token,
       conferenceName,
+      phoneSessionCode: job.call.phoneSessionCode ?? null,
+      phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? null,
     });
   }
 
@@ -100,5 +102,7 @@ export async function GET(
     dailyUrl,
     dailyError,
     serviceType: job.request.serviceType,
+    phoneSessionCode: job.call.phoneSessionCode ?? null,
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? null,
   });
 }

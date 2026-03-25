@@ -278,7 +278,7 @@ export const translations = {
     leaveCall: 'Leave Call',
     endCall: 'End Call',
     endCallForEveryone: 'End Call for Everyone',
-    invite: 'Invite',
+    invite: 'Invite Link',
     linkCopied: 'Link copied!',
     duration: 'Duration',
     iSpeak: 'I speak:',

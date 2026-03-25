@@ -21,6 +21,8 @@ export default function ClientCallClient() {
     interpretationType?: 'human' | 'ai';
     sourceLanguage?: string;
     targetLanguage?: string;
+    phoneSessionCode?: string | null;
+    phoneNumber?: string | null;
   } | null>(null);
   const [error, setError] = useState('');
 
@@ -92,6 +94,8 @@ export default function ClientCallClient() {
       endCallEndpoint={data.callId ? `/api/calls/${data.callId}/end` : null}
       inviteLinkEndpoint={data.callId ? `/api/calls/${data.callId}/invite-link` : null}
       role="client"
+      phoneSessionCode={data.phoneSessionCode}
+      phoneNumber={data.phoneNumber}
     />
   );
 }

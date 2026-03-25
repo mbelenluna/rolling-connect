@@ -105,10 +105,13 @@ export async function createPhoneRequest(
 
   // Create Call immediately so caller can be put in Twilio Conference (stays on line until interpreter joins)
   const conferenceName = `rolling-${job.id.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+  const { generateUniquePhoneSessionCode } = await import('./session-code');
+  const phoneSessionCode = await generateUniquePhoneSessionCode();
   await prisma.call.create({
     data: {
       jobId: job.id,
       roomId: conferenceName,
+      phoneSessionCode,
     },
   });
 

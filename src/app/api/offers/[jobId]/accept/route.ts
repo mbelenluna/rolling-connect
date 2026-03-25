@@ -55,10 +55,13 @@ export async function POST(
     // Phone-originated requests create Call in phone-request; web requests create it here
     let call = await tx.call.findUnique({ where: { jobId } });
     if (!call) {
+      const { generateUniquePhoneSessionCode } = await import('@/lib/session-code');
+      const phoneSessionCode = await generateUniquePhoneSessionCode();
       call = await tx.call.create({
         data: {
           jobId,
           roomId: `room_${jobId}_${Date.now()}`,
+          phoneSessionCode,
         },
       });
     }
