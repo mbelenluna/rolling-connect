@@ -420,11 +420,13 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
             )}
           </div>
         </div>
-        {phoneNumber && phoneSessionCode && (
+        {phoneSessionCode && (
           <div className="px-4 py-2 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Join by phone</span>
-            <span className="text-sm text-slate-700 font-mono">{phoneNumber}</span>
-            <span className="text-slate-300 hidden sm:inline">·</span>
+            {phoneNumber && (
+              <span className="text-sm text-slate-700 font-mono">{phoneNumber}</span>
+            )}
+            {phoneNumber && <span className="text-slate-300 hidden sm:inline">·</span>}
             <span className="text-xs text-slate-500">Session code:</span>
             <span className="text-sm font-mono font-semibold text-slate-800 tracking-widest">{phoneSessionCode}</span>
             <button
