@@ -217,29 +217,14 @@ async function handleJoinSession(req: NextRequest) {
     // are all valid unescaped in a SIP user-info field.
     const sipUri = `sip:${tokenResult.token}@sip.daily.co`;
 
-    // action URL handles the post-Dial callback so Twilio doesn't fall through
-    // to silence and play its own "application error" message.
-    const dialActionUrl = escapeXml(`${getRouteUrl()}?step=sip_done`);
-
     logVoiceResponse('join-session', { step, branch: 'joining_daily_sip' });
     console.log('[twilio/join-session] joining_daily_sip', { roomName, callId: call.id });
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial action="${dialActionUrl}" method="POST" timeout="30"><Sip>${escapeXml(sipUri)}</Sip></Dial></Response>`;
+    // No action URL on <Dial> — Twilio falls through to the inline <Say>/<Hangup>
+    // after the SIP leg ends.  Using an action callback URL would trigger another
+    // signature-validation round-trip that can fail in certain proxy setups.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial timeout="30"><Sip>${escapeXml(sipUri)}</Sip></Dial><Say voice="alice" language="en-US">The session has ended. Thank you for joining. Goodbye.</Say><Hangup/></Response>`;
     return twimlWithLog(xml, 'joining_daily_sip');
-  }
-
-  // ── Post-Dial callback: Twilio POSTs here after <Dial action> completes ──
-  // DialCallStatus: completed | failed | busy | no-answer | canceled
-  if (step === 'sip_done') {
-    const dialStatus = params.DialCallStatus ?? 'unknown';
-    console.log('[twilio/join-session] sip_done', { dialStatus });
-    if (dialStatus === 'completed') {
-      return sayAndHangup('Thank you for joining the session. Goodbye.', 'sip_done_completed');
-    }
-    return sayAndHangup(
-      'We were unable to connect you to the session. Please check the session code and try again. Goodbye.',
-      'sip_done_failed'
-    );
   }
 
   logVoiceResponse('join-session', { step, branch: 'fallback_unknown_step' });
