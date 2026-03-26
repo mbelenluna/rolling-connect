@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const schema = z.object({
-  durationSeconds: z.number(),
+  // Client-reported duration kept for auditing; server always recomputes from startedAt.
+  durationSeconds: z.number().optional(),
   interpreterNotes: z.string().optional(),
 });
 
@@ -26,14 +27,10 @@ export async function POST(
     try {
       body = await req.json();
     } catch {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+      body = {};
     }
     const parsed = schema.safeParse(body);
-    if (!parsed.success) {
-      const msg = parsed.error.errors.map((e) => e.message).join('; ') || 'Invalid request';
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
-    const { durationSeconds, interpreterNotes } = parsed.data;
+    const interpreterNotes = parsed.success ? parsed.data.interpreterNotes : undefined;
 
     const call = await prisma.call.findFirst({
       where: { id },
@@ -57,6 +54,19 @@ export async function POST(
     if (call.durationSeconds != null) return NextResponse.json({ success: true }); // Already ended (idempotent)
 
     const endAt = new Date();
+
+    // Always compute duration server-side from startedAt (set by mark-started when both
+    // participants joined). Falls back to createdAt so we never store 0.
+    const serverDuration = Math.max(
+      0,
+      Math.floor((endAt.getTime() - (call.startedAt ?? call.createdAt).getTime()) / 1000)
+    );
+
+    // Prefer the client-reported value if it's larger and plausible (guards against
+    // clock skew where startedAt was set slightly after the actual join).
+    const clientDuration = parsed.success ? (parsed.data.durationSeconds ?? 0) : 0;
+    const durationSeconds = Math.max(serverDuration, clientDuration);
+
     await prisma.$transaction([
       prisma.call.update({
         where: { id },

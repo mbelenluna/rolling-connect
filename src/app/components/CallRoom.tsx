@@ -192,6 +192,13 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
     });
     callRef.current = callFrame;
 
+    // Derive mark-started URL from whichever call endpoint is available
+    const markStartedUrl =
+      endCallEndpoint?.replace('/end', '/mark-started') ||
+      leaveEndpoint?.replace('/leave', '/mark-started') ||
+      endForEveryoneEndpoint?.replace('/end-for-everyone', '/mark-started') ||
+      null;
+
     const checkAndStartTimer = () => {
       if (timerStartRef.current) return;
       const participants = callFrame.participants();
@@ -199,6 +206,10 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
       if (count >= 2) {
         timerStartRef.current = Date.now();
         setTimerStarted(true);
+        // Record startedAt server-side so duration is always computed correctly
+        if (markStartedUrl) {
+          fetch(markStartedUrl, { method: 'POST', credentials: 'include' }).catch(() => {});
+        }
       }
     };
 
@@ -421,20 +432,32 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
           </div>
         </div>
         {phoneSessionCode && (
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Invite others to join via phone</p>
-            <ol className="list-none space-y-0.5">
-              {phoneNumber && (
-                <li className="text-sm text-slate-700">
-                  <span className="font-medium text-slate-500 mr-1">1)</span>
-                  Ask them to call{' '}
-                  <span className="font-mono font-semibold text-slate-900">{phoneNumber}</span>
-                </li>
-              )}
-              <li className="text-sm text-slate-700">
-                <span className="font-medium text-slate-500 mr-1">{phoneNumber ? '2)' : '1)'}</span>
-                They should select option 2, then enter the following session code followed by the pound key{' '}
-                <span className="font-mono font-bold text-slate-900 tracking-widest">{phoneSessionCode}</span>
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 space-y-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Join this session by phone</p>
+
+            {/* Phone number row */}
+            {phoneNumber && (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 text-sm">📞</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-mono font-semibold text-slate-800">{phoneNumber}</span>
+                  <a
+                    href={`tel:${phoneNumber}`}
+                    className="text-xs px-2 py-0.5 rounded border border-slate-200 text-brand-600 hover:bg-white transition-colors sm:hidden"
+                  >
+                    Tap to call
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Session code hero */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-slate-400 text-sm">🔢</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xl font-mono font-bold text-slate-900 tracking-widest">
+                  {phoneSessionCode.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3')}
+                </span>
                 <button
                   onClick={async () => {
                     const ok = await copyToClipboard(phoneSessionCode);
@@ -443,13 +466,44 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
                       setTimeout(() => setPhoneCodeCopied(false), 2500);
                     }
                   }}
-                  className="ml-2 text-xs px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300 transition-colors"
-                  title="Copy session code"
+                  className="text-xs px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300 transition-colors"
                 >
                   {phoneCodeCopied ? '✓ Copied' : 'Copy code'}
                 </button>
+              </div>
+            </div>
+
+            {/* Steps */}
+            <ol className="list-none space-y-0.5 pl-1">
+              {phoneNumber && (
+                <li className="text-xs text-slate-500">
+                  <span className="font-medium mr-1">Step 1:</span>Call <span className="font-mono font-medium text-slate-700">{phoneNumber}</span>
+                </li>
+              )}
+              <li className="text-xs text-slate-500">
+                <span className="font-medium mr-1">{phoneNumber ? 'Step 2:' : 'Step 1:'}</span>Press <span className="font-medium text-slate-700">2</span>
+              </li>
+              <li className="text-xs text-slate-500">
+                <span className="font-medium mr-1">{phoneNumber ? 'Step 3:' : 'Step 2:'}</span>Enter code <span className="font-mono font-medium text-slate-700">{phoneSessionCode}</span> followed by <span className="font-medium text-slate-700">#</span>
               </li>
             </ol>
+
+            {/* Copy full instructions */}
+            <button
+              onClick={async () => {
+                const instructions = phoneNumber
+                  ? `Join this Rolling Connect session by phone:\n• Call ${phoneNumber}\n• Press 2\n• Enter code: ${phoneSessionCode} followed by #`
+                  : `Join this Rolling Connect session by phone:\n• Press 2\n• Enter code: ${phoneSessionCode} followed by #`;
+                const ok = await copyToClipboard(instructions);
+                if (ok) {
+                  setPhoneCodeCopied(true);
+                  setTimeout(() => setPhoneCodeCopied(false), 2500);
+                }
+              }}
+              className="text-xs text-brand-600 hover:underline flex items-center gap-1"
+            >
+              🔗 {phoneCodeCopied ? '✓ Instructions copied!' : 'Copy full instructions'}
+            </button>
           </div>
         )}
         {showEndConfirm && (
