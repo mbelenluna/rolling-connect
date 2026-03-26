@@ -190,8 +190,10 @@ async function handleJoinSession(req: NextRequest) {
     }
 
     // ── 3b: Web-originated (Daily.co) — bridge via Daily.co SIP ───────────
-    // Daily.co SIP URI: sip:<meeting-token>@sip.daily.co
-    // The meeting token encodes which room to join and acts as authentication.
+    // Daily.co SIP URI format: sip:<meeting-token>@sip.daily.co
+    // The raw JWT token (NOT URL-encoded) is the SIP user-info; dots and other
+    // base64url chars are valid in SIP user-info per RFC 3261 — do NOT use
+    // encodeURIComponent here or the dots become %2E and Daily.co rejects it.
     const roomName = `rolling-${roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
 
     const { createDailyMeetingToken } = await import('@/lib/daily');
@@ -211,12 +213,33 @@ async function handleJoinSession(req: NextRequest) {
       );
     }
 
-    const sipUri = `sip:${encodeURIComponent(tokenResult.token)}@sip.daily.co`;
+    // Raw token — no encodeURIComponent. JWT chars (A-Z a-z 0-9 - _ = .)
+    // are all valid unescaped in a SIP user-info field.
+    const sipUri = `sip:${tokenResult.token}@sip.daily.co`;
+
+    // action URL handles the post-Dial callback so Twilio doesn't fall through
+    // to silence and play its own "application error" message.
+    const dialActionUrl = escapeXml(`${getRouteUrl()}?step=sip_done`);
+
     logVoiceResponse('join-session', { step, branch: 'joining_daily_sip' });
     console.log('[twilio/join-session] joining_daily_sip', { roomName, callId: call.id });
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial><Sip>${escapeXml(sipUri)}</Sip></Dial></Response>`;
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial action="${dialActionUrl}" method="POST" timeout="30"><Sip>${escapeXml(sipUri)}</Sip></Dial></Response>`;
     return twimlWithLog(xml, 'joining_daily_sip');
+  }
+
+  // ── Post-Dial callback: Twilio POSTs here after <Dial action> completes ──
+  // DialCallStatus: completed | failed | busy | no-answer | canceled
+  if (step === 'sip_done') {
+    const dialStatus = params.DialCallStatus ?? 'unknown';
+    console.log('[twilio/join-session] sip_done', { dialStatus });
+    if (dialStatus === 'completed') {
+      return sayAndHangup('Thank you for joining the session. Goodbye.', 'sip_done_completed');
+    }
+    return sayAndHangup(
+      'We were unable to connect you to the session. Please check the session code and try again. Goodbye.',
+      'sip_done_failed'
+    );
   }
 
   logVoiceResponse('join-session', { step, branch: 'fallback_unknown_step' });
