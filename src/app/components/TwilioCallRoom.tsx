@@ -18,8 +18,10 @@ type TwilioCallRoomProps = {
   backHref: string;
   backLabel: string;
   summaryHref: string;
-  leaveEndpoint: string;
-  endForEveryoneEndpoint: string;
+  leaveEndpoint?: string;
+  endForEveryoneEndpoint?: string;
+  role?: 'interpreter' | 'client';
+  endCallEndpoint?: string;
 };
 
 export default function TwilioCallRoom({
@@ -31,6 +33,8 @@ export default function TwilioCallRoom({
   summaryHref,
   leaveEndpoint,
   endForEveryoneEndpoint,
+  role,
+  endCallEndpoint,
 }: TwilioCallRoomProps) {
   const router = useRouter();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -64,7 +68,7 @@ export default function TwilioCallRoom({
         console.log('[TwilioCallRoom] device registered, connecting to conference');
         setStatus('connecting');
         device
-          .connect({ params: { conferenceName } })
+          .connect({ params: { conferenceName, role: role ?? 'interpreter' } })
           .then((call) => {
             callRef.current = call;
             call.on('accept', () => {
@@ -135,10 +139,20 @@ export default function TwilioCallRoom({
 
   const handleEndForEveryone = async () => {
     setShowEndConfirm(false);
-    await fetch(endForEveryoneEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
+    if (endForEveryoneEndpoint) {
+      await fetch(endForEveryoneEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
     if (callRef.current) {
       callRef.current.disconnect();
     }
+    router.replace(summaryHref);
+  };
+
+  const handleEndCall = async () => {
+    if (endCallEndpoint) {
+      await fetch(endCallEndpoint, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
+    if (callRef.current) callRef.current.disconnect();
     router.replace(summaryHref);
   };
 
@@ -179,18 +193,30 @@ export default function TwilioCallRoom({
               )}
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleLeaveCall}
-                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
-              >
-                Leave Call
-              </button>
-              <button
-                onClick={() => setShowEndConfirm(true)}
-                className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
-              >
-                End Call for Everyone
-              </button>
+              {endCallEndpoint && (
+                <button
+                  onClick={handleEndCall}
+                  className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
+                >
+                  End Call
+                </button>
+              )}
+              {leaveEndpoint && (
+                <button
+                  onClick={handleLeaveCall}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+                >
+                  Leave Call
+                </button>
+              )}
+              {endForEveryoneEndpoint && (
+                <button
+                  onClick={() => setShowEndConfirm(true)}
+                  className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium"
+                >
+                  End Call for Everyone
+                </button>
+              )}
             </div>
           </div>
         </div>

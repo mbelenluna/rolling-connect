@@ -93,6 +93,28 @@ export async function POST(
       io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds });
     }
 
+    // Terminate the Twilio Conference so all participants (interpreter, phone guests) are disconnected
+    if (call.roomId.startsWith('rolling-')) {
+      try {
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const endAuthToken = process.env.TWILIO_AUTH_TOKEN;
+        if (accountSid && endAuthToken) {
+          const { default: twilioSdk } = await import('twilio');
+          const twilioClient = twilioSdk(accountSid, endAuthToken);
+          const conferences = await twilioClient.conferences.list({
+            friendlyName: call.roomId,
+            status: 'in-progress',
+            limit: 1,
+          });
+          if (conferences[0]) {
+            await conferences[0].update({ status: 'completed' });
+          }
+        }
+      } catch (confErr) {
+        console.error('Conference termination error (non-fatal):', confErr);
+      }
+    }
+
     // Delete the Daily room to disconnect ALL participants (client, interpreter, guests).
     // Skip for phone OPI — Twilio conference ends when interpreter disconnects (endConferenceOnExit).
     if (!call.roomId.startsWith('rolling-')) {

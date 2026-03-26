@@ -57,12 +57,12 @@ export async function POST(
     if (!call) {
       const { generateUniquePhoneSessionCode } = await import('@/lib/session-code');
       const phoneSessionCode = await generateUniquePhoneSessionCode();
+      // OPI sessions use Twilio Conference (rolling-* prefix); VRI uses Daily.co
+      const roomId = job.request.serviceType === 'OPI'
+        ? `rolling-${jobId.replace(/[^a-zA-Z0-9-]/g, '-')}`
+        : `room_${jobId}_${Date.now()}`;
       call = await tx.call.create({
-        data: {
-          jobId,
-          roomId: `room_${jobId}_${Date.now()}`,
-          phoneSessionCode,
-        },
+        data: { jobId, roomId, phoneSessionCode },
       });
     }
 

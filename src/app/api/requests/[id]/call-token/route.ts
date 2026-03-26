@@ -52,6 +52,30 @@ export async function GET(
   const call = job.call;
   if (!call) return NextResponse.json({ error: 'Call not created' }, { status: 500 });
 
+  // Conference session (OPI with rolling-* roomId): return Twilio Voice token
+  if (call.roomId.startsWith('rolling-')) {
+    const { createTwilioVoiceToken } = await import('@/lib/twilio-token');
+    const tokenResult = createTwilioVoiceToken(`client-${userId}`);
+    if ('error' in tokenResult) {
+      return NextResponse.json({ error: tokenResult.error }, { status: 500 });
+    }
+    return NextResponse.json({
+      callId: call.id,
+      roomId: call.roomId,
+      conferenceName: call.roomId,
+      isPhoneOriginated: true,
+      twilioToken: tokenResult.token,
+      dailyUrl: null,
+      dailyError: null,
+      serviceType: request.serviceType,
+      interpretationType: request.interpretationType ?? 'human',
+      sourceLanguage: request.sourceLanguage,
+      targetLanguage: request.targetLanguage,
+      phoneSessionCode: call.phoneSessionCode ?? null,
+      phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? null,
+    });
+  }
+
   const roomName = `rolling-${call.roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
   const tokenResult = await createDailyMeetingToken({
     roomName,

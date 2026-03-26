@@ -189,58 +189,15 @@ async function handleJoinSession(req: NextRequest) {
       return twimlWithLog(xml, 'joining_conference');
     }
 
-    // ── 3b: Web-originated — Twilio Conference + optional SIP bridge ─────────
-    // Using <Sip> directly inside <Dial> TwiML causes Twilio error 12101
-    // ("Execute TwiML Directive") when Daily.co SIP is not provisioned, which
-    // plays "application error" and bypasses all inline fallback verbs.
-    // The fix: always put the phone guest in a reliable Twilio <Conference>,
-    // then fire-and-forget a REST API outbound call to sip.daily.co to bridge
-    // the Daily.co room audio into that conference.  If the SIP bridge fails,
-    // the phone guest hears Twilio hold music — no "application error" ever.
-    const conferenceName = `phone-${call.id}`;
-    const roomName = `rolling-${roomId.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-
-    // Attempt the Daily.co SIP bridge asynchronously — do NOT await so the
-    // phone guest's conference TwiML is returned immediately.
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    if (accountSid && fromNumber) {
-      const capturedCallSid = params.CallSid;
-      const capturedCallId  = call.id;
-      // Captured variables used inside the async IIFE closure:
-      void (async () => {
-        try {
-          const { createDailyMeetingToken } = await import('@/lib/daily');
-          const tokenResult = await createDailyMeetingToken({
-            roomName,
-            userName: 'Phone Guest',
-            userId: `phone-guest-${capturedCallSid ?? Date.now()}`,
-            serviceType: 'OPI',
-          });
-          if ('error' in tokenResult) {
-            console.warn('[twilio/join-session] sip_bridge_token_error', { roomName, error: tokenResult.error });
-            return;
-          }
-          const sipUri = `sip:${tokenResult.token}@sip.daily.co`;
-          const bridgeTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference startConferenceOnEnter="false" endConferenceOnExit="false">${conferenceName}</Conference></Dial></Response>`;
-          const twilioClient = twilio(accountSid, authToken);
-          await twilioClient.calls.create({ from: fromNumber, to: sipUri, twiml: bridgeTwiml });
-          console.log('[twilio/join-session] sip_bridge_initiated', { conferenceName, callId: capturedCallId });
-        } catch (err) {
-          // SIP bridge failure is non-fatal — phone guest stays in conference with hold music.
-          console.error('[twilio/join-session] sip_bridge_error', {
-            conferenceName,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      })();
-    }
-
-    logVoiceResponse('join-session', { step, branch: 'joining_web_conference' });
-    console.log('[twilio/join-session] joining_web_conference', { conferenceName, callId: call.id });
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice" language="en-US">Connecting you to the session now. Please hold.</Say><Dial><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="onEnter" participantLabel="phone-guest">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
-    return twimlWithLog(xml, 'joining_web_conference');
+    // ── 3b: Legacy web-originated session (old room_* format) ──────────────
+    // New OPI sessions now use rolling-* conference format (isPhoneOriginated=true)
+    // and are handled by the branch above. Sessions created before that change
+    // have a room_* roomId and cannot be joined by phone without Daily.co SIP.
+    logVoiceResponse('join-session', { step, branch: 'web_session_no_phone_access' });
+    return sayAndHangup(
+      'This session was started as a web video session and cannot be joined by phone. Please ask the session host to share the web meeting link with you. Goodbye.',
+      'web_session_no_phone_access'
+    );
   }
 
   logVoiceResponse('join-session', { step, branch: 'fallback_unknown_step' });

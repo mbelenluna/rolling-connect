@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import CallRoom from '@/app/components/CallRoom';
 import AICallRoom from '@/app/components/AICallRoom';
+import TwilioCallRoom from '@/app/components/TwilioCallRoom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
@@ -23,6 +24,9 @@ export default function ClientCallClient() {
     targetLanguage?: string;
     phoneSessionCode?: string | null;
     phoneNumber?: string | null;
+    isPhoneOriginated?: boolean;
+    twilioToken?: string;
+    conferenceName?: string;
   } | null>(null);
   const [error, setError] = useState('');
 
@@ -78,6 +82,21 @@ export default function ClientCallClient() {
         cancelEndpoint={`/api/requests/${requestId}/cancel`}
         endCallEndpoint={data.callId ? `/api/calls/${data.callId}/end` : null}
         inviteLinkEndpoint={data.callId ? `/api/calls/${data.callId}/invite-link` : null}
+      />
+    );
+  }
+
+  if (data.isPhoneOriginated && data.twilioToken && data.conferenceName && data.callId) {
+    return (
+      <TwilioCallRoom
+        twilioToken={data.twilioToken}
+        conferenceName={data.conferenceName}
+        callId={data.callId}
+        role="client"
+        backHref="/client/requests"
+        backLabel="Back to Requests"
+        summaryHref={`/client/call/${requestId}/summary`}
+        endCallEndpoint={`/api/calls/${data.callId}/end`}
       />
     );
   }

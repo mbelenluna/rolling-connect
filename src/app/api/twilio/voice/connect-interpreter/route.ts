@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
   }
 
   // endConferenceOnExit=false: interpreter can leave without ending the call; client stays connected
-  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference beep="onEnter" endConferenceOnExit="false" participantLabel="interpreter">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
+  const role = params.role === 'client' ? 'client' : 'interpreter';
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference beep="onEnter" endConferenceOnExit="false" participantLabel="${role}">${escapeXml(conferenceName)}</Conference></Dial></Response>`;
   return new NextResponse(xml, {
     headers: { 'Content-Type': 'application/xml; charset=utf-8' },
   });
