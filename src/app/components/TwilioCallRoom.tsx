@@ -22,6 +22,8 @@ type TwilioCallRoomProps = {
   endForEveryoneEndpoint?: string;
   role?: 'interpreter' | 'client';
   endCallEndpoint?: string;
+  phoneSessionCode?: string | null;
+  phoneNumber?: string | null;
 };
 
 export default function TwilioCallRoom({
@@ -35,6 +37,8 @@ export default function TwilioCallRoom({
   endForEveryoneEndpoint,
   role,
   endCallEndpoint,
+  phoneSessionCode,
+  phoneNumber,
 }: TwilioCallRoomProps) {
   const router = useRouter();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -43,6 +47,8 @@ export default function TwilioCallRoom({
   const [error, setError] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [phoneParticipants, setPhoneParticipants] = useState<Array<{ callSid: string; from: string }>>([]);
   const timerStartRef = useRef<number | null>(null);
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
@@ -130,6 +136,27 @@ export default function TwilioCallRoom({
     }, 1000);
     return () => clearInterval(interval);
   }, [timerStarted]);
+
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const poll = () => {
+      fetch(`/api/calls/${callId}/phone-participants`, { credentials: 'include' })
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d.participants)) setPhoneParticipants(d.participants); })
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 6000);
+    return () => clearInterval(interval);
+  }, [status, callId]);
+
+  const handleCopyCode = () => {
+    if (!phoneSessionCode) return;
+    navigator.clipboard.writeText(phoneSessionCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
 
   const handleToggleMute = () => {
     if (!callRef.current) return;
@@ -236,17 +263,58 @@ export default function TwilioCallRoom({
             </div>
           </div>
         </div>
-        <div className="p-8 min-h-[200px] flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <div className="p-6 bg-slate-50 space-y-4">
           {status === 'connecting' && (
-            <p className="text-slate-600">Connecting to the session...</p>
+            <p className="text-slate-600 text-center py-8">Connecting to the session...</p>
           )}
+
           {status === 'connected' && (
             <>
-              <p className="text-slate-600">
-                You are connected.{isMuted && <span className="ml-2 font-medium text-amber-700">Your microphone is muted.</span>}
+              <p className="text-slate-700">
+                You are connected.
+                {isMuted && <span className="ml-2 font-medium text-amber-700">Your microphone is muted.</span>}
               </p>
+
+              {/* Phone join instructions */}
+              {phoneNumber && phoneSessionCode && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+                  <p className="text-sm font-semibold text-slate-700">Join by phone</p>
+                  <p className="text-sm text-slate-600">
+                    Call <span className="font-mono font-medium text-slate-900">{phoneNumber}</span>, press <span className="font-medium">2</span>, then enter the session code:
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xl font-bold tracking-widest text-slate-900">
+                      {phoneSessionCode}
+                    </span>
+                    <button
+                      onClick={handleCopyCode}
+                      className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 font-medium"
+                    >
+                      {codeCopied ? '✓ Copied' : 'Copy code'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Phone participants */}
+              {phoneParticipants.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+                  <p className="text-sm font-semibold text-slate-700">
+                    Phone participant{phoneParticipants.length > 1 ? 's' : ''} connected
+                  </p>
+                  <ul className="space-y-1">
+                    {phoneParticipants.map((p) => (
+                      <li key={p.callSid} className="flex items-center gap-2 text-sm text-slate-800">
+                        <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                        <span className="font-mono">{p.from}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {(leaveEndpoint || endForEveryoneEndpoint) && (
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-slate-500">
                   Leave Call = you leave only (session continues). End Call for Everyone = ends the session for all participants.
                 </p>
               )}

@@ -97,6 +97,8 @@ export default function ClientCallClient() {
         backLabel="Back to Requests"
         summaryHref={`/client/call/${requestId}/summary`}
         endCallEndpoint={`/api/calls/${data.callId}/end`}
+        phoneSessionCode={data.phoneSessionCode}
+        phoneNumber={data.phoneNumber}
       />
     );
   }

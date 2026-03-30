@@ -63,6 +63,8 @@ export default function InterpreterCallClient() {
         summaryHref={`/interpreter/call/${jobId}/summary`}
         leaveEndpoint={`/api/calls/${data.callId}/leave`}
         endForEveryoneEndpoint={`/api/calls/${data.callId}/end-for-everyone`}
+        phoneSessionCode={data.phoneSessionCode}
+        phoneNumber={data.phoneNumber}
       />
     );
   }
