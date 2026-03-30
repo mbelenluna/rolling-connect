@@ -350,3 +350,11 @@ model GoCardlessRedirectSession {
 
   @@map("gocardless_redirect_sessions")
 }
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

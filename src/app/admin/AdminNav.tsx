@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -11,7 +11,17 @@ export default function AdminNav() {
   const pathname = usePathname();
   const { locale } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const t = (k: TranslationKeys) => getTranslation(locale, k);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setMobileOpen(false); menuButtonRef.current?.focus(); }
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [mobileOpen]);
   const linkClass = (path: string, exact?: boolean) => {
     const isActive = exact ? pathname === path : pathname.startsWith(path);
     return `block px-3 py-2 rounded-lg font-medium transition ${
@@ -38,6 +48,7 @@ export default function AdminNav() {
       </div>
       <div className="md:hidden relative">
         <button
+          ref={menuButtonRef}
           type="button"
           onClick={() => setMobileOpen((o) => !o)}
           className="p-2 rounded-lg text-slate-600 hover:bg-slate-100"

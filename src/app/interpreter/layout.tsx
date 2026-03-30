@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import InterpreterNav from './InterpreterNav';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { SystemBanner } from '@/app/components/SystemBanner';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export default async function InterpreterLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <SystemBanner />
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="h-1 bg-brand-600" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
@@ -26,7 +28,7 @@ export default async function InterpreterLayout({
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">{children}</main>
+      <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">{children}</main>
     </div>
   );
 }

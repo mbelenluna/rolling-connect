@@ -6,7 +6,7 @@ import { findEligibleInterpreters, findEligibleInterpretersWithDebug } from '@/l
 import { cancelStaleJobs } from '@/lib/cancel-job';
 import { z } from 'zod';
 
-const OFFER_TIMEOUT_SEC = 60;
+const OFFER_TIMEOUT_SEC = 35;
 const LOG_PREFIX = '[requests POST]';
 
 const schema = z.object({

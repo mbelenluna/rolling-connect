@@ -59,6 +59,7 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
   const guestLeaveEndpointRef = useRef(guestLeaveEndpoint);
   const inviteTokenRef = useRef(inviteToken);
   const dailyErrorRef = useRef(dailyError);
+  const endConfirmModalRef = useRef<HTMLDivElement>(null);
   endCallEndpointRef.current = endCallEndpoint;
   leaveEndpointRef.current = leaveEndpoint;
   guestLeaveEndpointRef.current = guestLeaveEndpoint;
@@ -274,6 +275,15 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
 
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
+  useEffect(() => {
+    if (showEndConfirm && endConfirmModalRef.current) {
+      const focusable = endConfirmModalRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable[0]?.focus();
+    }
+  }, [showEndConfirm]);
+
   const handleLeaveCall = async () => {
     if (leaveEndpoint && tokenUrl && !dailyError) {
       endedByUserRef.current = true;
@@ -391,12 +401,10 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
                 >
                   Invite Link
                 </button>
-                {inviteCopied && (
-                  <span className="text-xs text-green-600 mt-1 font-medium">Link copied!</span>
-                )}
-                {inviteError && (
-                  <span className="text-xs text-amber-600 mt-1">{inviteError}</span>
-                )}
+                <div role="status" aria-live="polite" aria-atomic="true" className="text-xs mt-1 font-medium min-h-[1rem]">
+                  {inviteCopied && <span className="text-green-600">Link copied!</span>}
+                  {inviteError && <span className="text-amber-600">{inviteError}</span>}
+                </div>
               </div>
             )}
             {/* Duration: shown next to End Call for both client and interpreter */}
@@ -470,6 +478,9 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
                 >
                   {phoneCodeCopied ? '✓ Copied' : 'Copy code'}
                 </button>
+                <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+                  {phoneCodeCopied ? 'Code copied to clipboard' : ''}
+                </div>
               </div>
             </div>
 
@@ -507,9 +518,35 @@ export default function CallRoom({ tokenUrl, serviceType, backHref, backLabel, s
           </div>
         )}
         {showEndConfirm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
-              <h2 className="text-lg font-semibold text-slate-900 mb-2">{t('endCallForEveryone')}?</h2>
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowEndConfirm(false); }}
+          >
+            <div
+              ref={endConfirmModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="end-confirm-title"
+              className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { setShowEndConfirm(false); return; }
+                if (e.key === 'Tab') {
+                  const focusable = endConfirmModalRef.current?.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                  );
+                  if (!focusable || focusable.length === 0) return;
+                  const first = focusable[0];
+                  const last = focusable[focusable.length - 1];
+                  if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault(); last.focus();
+                  } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault(); first.focus();
+                  }
+                }
+              }}
+            >
+              <h2 id="end-confirm-title" className="text-lg font-semibold text-slate-900 mb-2">{t('endCallForEveryone')}?</h2>
               <p className="text-slate-600 mb-4">
                 This will disconnect the client and end the session for everyone. The call cannot be resumed.
               </p>

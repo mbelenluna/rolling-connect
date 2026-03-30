@@ -26,6 +26,10 @@ type MonthData = {
   calls: CallRow[];
   totalClientChargeCents: number;
   totalInterpreterPayCents: number;
+  opiCount: number;
+  vriCount: number;
+  onDemandCount: number;
+  scheduledCount: number;
 };
 
 type FilterOption = { id: string; name: string; email: string };
@@ -47,6 +51,7 @@ export default function AdminReportsClient() {
     byMonth: MonthData[];
     clients?: FilterOption[];
     interpreters?: FilterOption[];
+    summary?: { totalCalls: number; opiCount: number; vriCount: number; onDemandCount: number; scheduledCount: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [clientId, setClientId] = useState('');
@@ -189,6 +194,28 @@ export default function AdminReportsClient() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Billing Reports</h1>
+
+      {data.summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p className="text-2xl font-bold text-slate-900">{data.summary.totalCalls}</p>
+            <p className="text-xs text-slate-500 mt-1">Total Sessions</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p className="text-2xl font-bold text-brand-600">{data.summary.opiCount}</p>
+            <p className="text-xs text-slate-500 mt-1">OPI (Phone)</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p className="text-2xl font-bold text-brand-600">{data.summary.vriCount}</p>
+            <p className="text-xs text-slate-500 mt-1">VRI (Video)</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p className="text-2xl font-bold text-slate-700">{data.summary.scheduledCount}</p>
+            <p className="text-xs text-slate-500 mt-1">Scheduled</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-4 mb-6">
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium text-slate-700">Client</span>

@@ -31,6 +31,7 @@ export async function GET(req: Request) {
           targetLanguage: true,
           sourceLanguage: true,
           serviceType: true,
+          scheduleType: true,
           specialty: true,
           interpretationType: true,
           createdAt: true,
@@ -61,6 +62,8 @@ export async function GET(req: Request) {
     clientChargeCents: number;
     interpreterPayCents: number;
     monthKey: string;
+    serviceType: string;
+    scheduleType: string;
   };
 
   const rows: CallRow[] = jobs
@@ -89,6 +92,8 @@ export async function GET(req: Request) {
         clientChargeCents: clientChargeCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
         interpreterPayCents: interpreterPayCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
         monthKey,
+        serviceType: j.request.serviceType,
+        scheduleType: j.request.scheduleType,
       };
     });
 
@@ -123,9 +128,20 @@ export async function GET(req: Request) {
       calls: byMonth[m],
       totalClientChargeCents: byMonth[m].reduce((s, c) => s + c.clientChargeCents, 0),
       totalInterpreterPayCents: byMonth[m].reduce((s, c) => s + c.interpreterPayCents, 0),
+      opiCount: byMonth[m].filter((c) => c.serviceType === 'OPI').length,
+      vriCount: byMonth[m].filter((c) => c.serviceType === 'VRI').length,
+      onDemandCount: byMonth[m].filter((c) => c.scheduleType === 'now').length,
+      scheduledCount: byMonth[m].filter((c) => c.scheduleType === 'scheduled').length,
     })),
     clients,
     interpreters,
+    summary: {
+      totalCalls: filteredRows.length,
+      opiCount: filteredRows.filter((r) => r.serviceType === 'OPI').length,
+      vriCount: filteredRows.filter((r) => r.serviceType === 'VRI').length,
+      onDemandCount: filteredRows.filter((r) => r.scheduleType === 'now').length,
+      scheduledCount: filteredRows.filter((r) => r.scheduleType === 'scheduled').length,
+    },
   };
 
   return NextResponse.json(result);

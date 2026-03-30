@@ -293,7 +293,9 @@ function LoginContent() {
                 />
               </div>
             )}
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <div role="alert" aria-live="assertive" aria-atomic="true" className="min-h-[1.25rem]">
+              {error && <p className="text-red-600 text-sm">{error}</p>}
+            </div>
             <button
               type="submit"
               disabled={loading}
