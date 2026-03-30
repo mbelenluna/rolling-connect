@@ -131,7 +131,10 @@ export async function POST(req: Request) {
       await prisma.call.create({
         data: {
           jobId: job.id,
-          roomId: `room_${job.id}_${Date.now()}`,
+          // OPI uses Twilio Conference (rolling-* prefix); VRI uses Daily.co
+          roomId: data.serviceType === 'OPI'
+            ? `rolling-${job.id.replace(/[^a-zA-Z0-9-]/g, '-')}`
+            : `room_${job.id}_${Date.now()}`,
           phoneSessionCode,
         },
       });

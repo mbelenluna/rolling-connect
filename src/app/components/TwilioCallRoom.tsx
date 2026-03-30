@@ -42,6 +42,7 @@ export default function TwilioCallRoom({
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const timerStartRef = useRef<number | null>(null);
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
@@ -130,6 +131,13 @@ export default function TwilioCallRoom({
     return () => clearInterval(interval);
   }, [timerStarted]);
 
+  const handleToggleMute = () => {
+    if (!callRef.current) return;
+    const next = !isMuted;
+    callRef.current.mute(next);
+    setIsMuted(next);
+  };
+
   const handleLeaveCall = () => {
     if (callRef.current) {
       callRef.current.disconnect();
@@ -193,6 +201,14 @@ export default function TwilioCallRoom({
               )}
             </div>
             <div className="flex gap-2">
+              {status === 'connected' && (
+                <button
+                  onClick={handleToggleMute}
+                  className={`px-4 py-2 rounded-lg font-medium border ${isMuted ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                >
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </button>
+              )}
               {endCallEndpoint && (
                 <button
                   onClick={handleEndCall}
@@ -222,14 +238,18 @@ export default function TwilioCallRoom({
         </div>
         <div className="p-8 min-h-[200px] flex flex-col items-center justify-center bg-slate-50 gap-4">
           {status === 'connecting' && (
-            <p className="text-slate-600">Connecting you to the caller on the phone...</p>
+            <p className="text-slate-600">Connecting to the session...</p>
           )}
           {status === 'connected' && (
             <>
-              <p className="text-slate-600">You are connected. The caller is on the phone — speak normally.</p>
-              <p className="text-sm text-slate-500">
-                Leave Call = you leave only (client stays, you can rejoin). End Call for Everyone = disconnect client and end session.
+              <p className="text-slate-600">
+                You are connected.{isMuted && <span className="ml-2 font-medium text-amber-700">Your microphone is muted.</span>}
               </p>
+              {(leaveEndpoint || endForEveryoneEndpoint) && (
+                <p className="text-sm text-slate-500">
+                  Leave Call = you leave only (session continues). End Call for Everyone = ends the session for all participants.
+                </p>
+              )}
             </>
           )}
         </div>
