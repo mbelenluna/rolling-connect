@@ -245,6 +245,42 @@ export async function sendInterpreterWelcomeEmail(to: string, name: string): Pro
   }
 }
 
+export async function sendMfaCode(to: string, name: string, code: string): Promise<{ ok: boolean; error?: string }> {
+  if (!process.env.SENDGRID_API_KEY) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #334155; max-width: 600px; margin: 0 auto; padding: 24px;">
+  <p>Dear ${escapeHtml(name)},</p>
+  <p>Your Rolling Connect verification code is:</p>
+  <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; text-align: center; color: #2A61B5; background: #f1f5f9; padding: 16px; border-radius: 8px;">${escapeHtml(code)}</p>
+  <p>This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+  <p>If you did not request this code, please ignore this email or contact us immediately.</p>
+  <p>Kind regards,<br>Rolling Translations<br>Rolling Connect Team</p>
+</body>
+</html>
+  `.trim();
+
+  try {
+    await sgMail.send({
+      to,
+      from: FROM,
+      replyTo: REPLY_TO,
+      subject: `${escapeHtml(code)} is your Rolling Connect verification code`,
+      html,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Send MFA code email error:', err);
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to send' };
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, name: string, token: string): Promise<{ ok: boolean; error?: string }> {
   if (!process.env.SENDGRID_API_KEY) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
 
