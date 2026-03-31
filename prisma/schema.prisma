@@ -88,6 +88,7 @@ model User {
   currentPeriodEnd         DateTime?          @map("current_period_end")
   billingDisabledAt        DateTime?          @map("billing_disabled_at")
   billingDisabledReason    String?            @map("billing_disabled_reason")
+  mfaEnabled               Boolean            @default(false) @map("mfa_enabled")
   createdAt                DateTime           @default(now()) @map("created_at")
   updatedAt                DateTime           @updatedAt @map("updated_at")
 
@@ -97,6 +98,7 @@ model User {
   createdRequests      InterpretationRequest[] @relation("CreatedBy")
   assignedJobs          Job[]                   @relation("AssignedInterpreter")
   auditLogs            AuditLog[]
+  mfaCodes             MfaCode[]
   emailConfirmationToken EmailConfirmationToken?
   passwordResetTokens  PasswordResetToken[]
 }
@@ -357,4 +359,17 @@ model SystemSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model MfaCode {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_codes")
 }
