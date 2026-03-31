@@ -36,6 +36,8 @@ export default function ClientNav() {
       <Link href="/client" className={linkClass('/client', true)} onClick={() => setMobileOpen(false)}>{t('dashboard')}</Link>
       <Link href="/client/requests" className={linkClass('/client/requests')} onClick={() => setMobileOpen(false)}>{t('requests')}</Link>
       <Link href="/client/history" className={linkClass('/client/history')} onClick={() => setMobileOpen(false)}>{t('billing')}</Link>
+      <Link href="/client/billing-reports" className={linkClass('/client/billing-reports')} onClick={() => setMobileOpen(false)}>Reports</Link>
+      <Link href="/client/settings" className={linkClass('/client/settings')} onClick={() => setMobileOpen(false)}>Settings</Link>
       <div className="w-px h-6 bg-slate-200 mx-2 hidden md:block" aria-hidden />
       <button
         onClick={() => signOut({ callbackUrl: '/' })}
@@ -77,6 +79,8 @@ export default function ClientNav() {
                 <Link href="/client" className={linkClass('/client', true)} onClick={() => setMobileOpen(false)}>{t('dashboard')}</Link>
                 <Link href="/client/requests" className={linkClass('/client/requests')} onClick={() => setMobileOpen(false)}>{t('requests')}</Link>
                 <Link href="/client/history" className={linkClass('/client/history')} onClick={() => setMobileOpen(false)}>{t('billing')}</Link>
+                <Link href="/client/billing-reports" className={linkClass('/client/billing-reports')} onClick={() => setMobileOpen(false)}>Reports</Link>
+                <Link href="/client/settings" className={linkClass('/client/settings')} onClick={() => setMobileOpen(false)}>Settings</Link>
                 <div className="border-t border-slate-100 my-2" />
                 <button
                   onClick={() => signOut({ callbackUrl: '/' })}

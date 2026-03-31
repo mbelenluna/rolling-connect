@@ -438,6 +438,21 @@ export default function RequestPageClient() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Cost Center / PIN <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.costCenter}
+                onChange={(e) => setForm((f) => ({ ...f, costCenter: e.target.value }))}
+                maxLength={32}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                placeholder="e.g. Dept-123 or project code"
+              />
+              <p className="mt-1 text-xs text-slate-400">Used for internal billing and reporting purposes.</p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('notes')}</label>
               <textarea
                 value={form.notes}

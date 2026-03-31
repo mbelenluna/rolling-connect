@@ -34,6 +34,7 @@ export async function GET(req: Request) {
           scheduleType: true,
           specialty: true,
           interpretationType: true,
+          costCenter: true,
           createdAt: true,
           createdByUserId: true,
           createdBy: { select: { id: true, name: true, email: true } },
@@ -64,6 +65,7 @@ export async function GET(req: Request) {
     monthKey: string;
     serviceType: string;
     scheduleType: string;
+    costCenter: string;
   };
 
   const rows: CallRow[] = jobs
@@ -94,6 +96,7 @@ export async function GET(req: Request) {
         monthKey,
         serviceType: j.request.serviceType,
         scheduleType: j.request.scheduleType,
+        costCenter: j.request.costCenter ?? '',
       };
     });
 

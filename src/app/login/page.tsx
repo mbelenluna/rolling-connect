@@ -24,6 +24,8 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
+  const [mfaPending, setMfaPending] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
   const isRegister = searchParams.get('register') === '1';
@@ -136,10 +138,30 @@ function LoginContent() {
         params.delete('errorDescription');
         router.replace(params.toString() ? `/login?${params}` : '/login');
       }
-      const result = await signIn('credentials', { email, password, redirect: false });
+
+      // Step 1: pre-login — verify password and check if MFA is required
+      if (!mfaPending) {
+        const preRes = await fetch('/api/auth/pre-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const preData = await preRes.json();
+        if (!preData.ok) {
+          throw new Error(preData.error === 'Invalid credentials' ? t(locale, 'invalidCredentials') : (preData.error || t(locale, 'invalidCredentials')));
+        }
+        if (preData.requiresMfa) {
+          setMfaPending(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Step 2: sign in (with mfaCode if MFA was required)
+      const result = await signIn('credentials', { email, password, mfaCode: mfaPending ? mfaCode : '', redirect: false });
       if (result?.error) {
         const msg = result.error === 'CredentialsSignin'
-          ? t(locale, 'invalidCredentials')
+          ? mfaPending ? 'Invalid or expired verification code.' : t(locale, 'invalidCredentials')
           : result.error;
         throw new Error(msg);
       }
@@ -211,6 +233,46 @@ function LoginContent() {
               {isRegister ? t(locale, 'createAccount') : t(locale, 'signIn')}
             </h1>
           <form onSubmit={handleSubmit} className="space-y-4" style={{ display: registeredClient ? 'none' : undefined }}>
+            {mfaPending && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">A 6-digit verification code has been sent to <strong>{email}</strong>. Enter it below to continue.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Verification Code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600 text-center text-2xl tracking-widest font-mono"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div role="alert" aria-live="assertive" aria-atomic="true" className="min-h-[1.25rem]">
+                  {error && <p className="text-red-600 text-sm">{error}</p>}
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || mfaCode.length !== 6}
+                  className="w-full py-2.5 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 disabled:opacity-50 transition"
+                >
+                  {loading ? t(locale, 'pleaseWait') : 'Verify & Sign In'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMfaPending(false); setMfaCode(''); setError(''); }}
+                  className="w-full py-2 text-sm text-slate-600 hover:text-slate-900 underline"
+                >
+                  Back to sign in
+                </button>
+              </div>
+            )}
+            {!mfaPending && (<>
             {isRegister && (
               <>
                 <div>
@@ -342,6 +404,7 @@ function LoginContent() {
                 {t(locale, 'googleSignInNotConfigured')}
               </p>
             )}
+            </>)}
           </form>
           <p className="mt-4 text-center text-sm text-slate-600">
             {isRegister ? (

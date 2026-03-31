@@ -38,6 +38,7 @@ export default function AdminNav() {
         <Link href="/admin/jobs" className={linkClass('/admin/jobs')}>{t('jobs')}</Link>
         <Link href="/admin/users" className={linkClass('/admin/users')}>{t('users')}</Link>
         <Link href="/admin/reports" className={linkClass('/admin/reports')}>{t('reports')}</Link>
+        <Link href="/admin/audit-logs" className={linkClass('/admin/audit-logs')}>Audit Logs</Link>
         <div className="w-px h-6 bg-slate-200 mx-2" aria-hidden />
         <button
           onClick={() => signOut({ callbackUrl: '/' })}
@@ -72,6 +73,7 @@ export default function AdminNav() {
                 <Link href="/admin/jobs" className={linkClass('/admin/jobs')} onClick={() => setMobileOpen(false)}>{t('jobs')}</Link>
                 <Link href="/admin/users" className={linkClass('/admin/users')} onClick={() => setMobileOpen(false)}>{t('users')}</Link>
                 <Link href="/admin/reports" className={linkClass('/admin/reports')} onClick={() => setMobileOpen(false)}>{t('reports')}</Link>
+                <Link href="/admin/audit-logs" className={linkClass('/admin/audit-logs')} onClick={() => setMobileOpen(false)}>Audit Logs</Link>
                 <div className="border-t border-slate-100 my-2" />
                 <button
                   onClick={() => signOut({ callbackUrl: '/' })}

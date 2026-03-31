@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from './prisma';
 import { sendEmailConfirmation, sendInterpreterWelcomeEmail } from './email';
+import { logAudit } from './audit';
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -28,6 +29,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        mfaCode: { label: 'Verification Code', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
@@ -35,6 +37,18 @@ export const authOptions: NextAuthOptions = {
         if (!user) return null;
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
+
+        if (user.mfaEnabled) {
+          const mfaCode = (credentials as { mfaCode?: string }).mfaCode;
+          if (!mfaCode) return null;
+          const validCode = await prisma.mfaCode.findFirst({
+            where: { userId: user.id, code: mfaCode, used: false, expiresAt: { gt: new Date() } },
+          });
+          if (!validCode) return null;
+          await prisma.mfaCode.update({ where: { id: validCode.id }, data: { used: true } });
+        }
+
+        logAudit({ userId: user.id, action: 'login', entityType: 'user', entityId: user.id, metadata: { method: 'credentials', mfa: user.mfaEnabled } });
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),
@@ -51,6 +65,7 @@ export const authOptions: NextAuthOptions = {
           if (existing.role !== 'client' && existing.role !== 'interpreter') {
             return '/login?error=GoogleSignInClientOnly';
           }
+          logAudit({ userId: existing.id, action: 'login', entityType: 'user', entityId: existing.id, metadata: { method: 'google', provider: account.provider } });
           return true;
         }
 

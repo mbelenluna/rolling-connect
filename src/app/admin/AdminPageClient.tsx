@@ -9,6 +9,12 @@ export default function AdminPageClient() {
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState('');
 
+  const now = new Date();
+  const [reportMonth, setReportMonth] = useState(now.getMonth() + 1); // 1-based
+  const [reportYear, setReportYear] = useState(now.getFullYear());
+  const [reportSending, setReportSending] = useState(false);
+  const [reportMsg, setReportMsg] = useState('');
+
   useEffect(() => {
     Promise.all([
       fetch('/api/admin/stats').then((r) => r.json()).catch(() => ({})),
@@ -80,6 +86,58 @@ export default function AdminPageClient() {
             </button>
           )}
           {bannerMsg && <span role="status" className="text-sm text-green-600">{bannerMsg}</span>}
+        </div>
+      </div>
+
+      {/* Monthly Report */}
+      <div className="mb-8 p-4 bg-white rounded-xl border border-slate-200">
+        <h2 className="font-semibold text-slate-900 mb-1">Send Monthly Usage Report</h2>
+        <p className="text-sm text-slate-500 mb-3">Generates a PDF report of all completed calls and emails it to all organization billing contacts.</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={reportMonth}
+            onChange={(e) => setReportMonth(Number(e.target.value))}
+            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+          >
+            {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+              <option key={m} value={i + 1}>{m}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            value={reportYear}
+            onChange={(e) => setReportYear(Number(e.target.value))}
+            min={2024}
+            max={new Date().getFullYear()}
+            className="w-24 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+          />
+          <button
+            onClick={async () => {
+              setReportSending(true);
+              setReportMsg('');
+              try {
+                const res = await fetch('/api/admin/send-monthly-report', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ month: reportMonth, year: reportYear }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                setReportMsg(`Report sent to ${data.sentTo} recipient(s).`);
+              } catch (e) {
+                setReportMsg(e instanceof Error ? e.message : 'Failed to send');
+              } finally {
+                setReportSending(false);
+              }
+            }}
+            disabled={reportSending}
+            className="px-4 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+          >
+            {reportSending ? 'Sending…' : 'Send Report'}
+          </button>
+          {reportMsg && (
+            <span role="status" className={`text-sm ${reportMsg.includes('sent') ? 'text-green-600' : 'text-red-600'}`}>{reportMsg}</span>
+          )}
         </div>
       </div>
 

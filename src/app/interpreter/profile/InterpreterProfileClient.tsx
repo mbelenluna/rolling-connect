@@ -21,6 +21,9 @@ export default function InterpreterProfileClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaSaving, setMfaSaving] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState('');
 
   const [editForm, setEditForm] = useState<{
     languagePairs: LanguagePair[];
@@ -33,11 +36,13 @@ export default function InterpreterProfileClient() {
       fetch('/api/interpreter/profile').then((r) => r.json()),
       fetch('/api/languages').then((r) => r.json()),
       fetch('/api/specialties').then((r) => r.json()),
+      fetch('/api/auth/mfa').then((r) => r.json()),
     ])
-      .then(([p, l, s]) => {
+      .then(([p, l, s, mfa]) => {
         setProfile(p);
         setLanguages(l);
         setSpecialties(s);
+        setMfaEnabled(mfa.mfaEnabled ?? false);
         setEditForm({
           languagePairs: p.languagePairs?.length ? p.languagePairs : [{ source: 'en', target: 'es' }],
           specialties: p.specialties?.length ? p.specialties : [],
@@ -47,6 +52,26 @@ export default function InterpreterProfileClient() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const toggleMfa = async () => {
+    setMfaSaving(true);
+    setMfaMessage('');
+    try {
+      const res = await fetch('/api/auth/mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !mfaEnabled }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update');
+      setMfaEnabled(data.mfaEnabled);
+      setMfaMessage(data.mfaEnabled ? 'Two-factor authentication enabled.' : 'Two-factor authentication disabled.');
+    } catch (e) {
+      setMfaMessage(e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setMfaSaving(false);
+    }
+  };
 
   const addLanguagePair = () => {
     setEditForm((f) => ({
@@ -207,6 +232,31 @@ export default function InterpreterProfileClient() {
         >
           {saving ? 'Saving…' : 'Save profile'}
         </button>
+      </div>
+
+      {/* MFA / Two-Factor Authentication */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">Two-Factor Authentication (2FA)</h2>
+        <p className="text-sm text-slate-600 mb-4">
+          When enabled, you will be required to enter a one-time verification code sent to your email each time you sign in.
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-slate-700">
+            Status: <span className={mfaEnabled ? 'text-green-600' : 'text-slate-500'}>{mfaEnabled ? 'Enabled' : 'Disabled'}</span>
+          </span>
+          <button
+            onClick={toggleMfa}
+            disabled={mfaSaving}
+            className={`px-5 py-2 rounded-xl font-semibold text-sm transition disabled:opacity-50 ${mfaEnabled ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+          >
+            {mfaSaving ? 'Saving…' : mfaEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+          </button>
+        </div>
+        {mfaMessage && (
+          <p className={`mt-3 text-sm ${mfaMessage.includes('enabled') ? 'text-green-600' : mfaMessage.includes('disabled') ? 'text-slate-600' : 'text-red-600'}`}>
+            {mfaMessage}
+          </p>
+        )}
       </div>
     </div>
   );

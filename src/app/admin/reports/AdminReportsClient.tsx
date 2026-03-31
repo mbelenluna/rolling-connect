@@ -18,6 +18,9 @@ type CallRow = {
   clientChargeCents: number;
   interpreterPayCents: number;
   monthKey: string;
+  serviceType?: string;
+  scheduleType?: string;
+  costCenter?: string;
 };
 
 type MonthData = {
@@ -303,6 +306,7 @@ export default function AdminReportsClient() {
                     <th className="py-2 pr-4">Client</th>
                     <th className="py-2 pr-4">Interpreter</th>
                     <th className="py-2 pr-4">Language</th>
+                    <th className="py-2 pr-4">Cost Center</th>
                     <th className="py-2 pr-4 text-right">Duration</th>
                     <th className="py-2 pr-4 text-right">Charge</th>
                     <th className="py-2 text-right">Pay</th>
@@ -321,6 +325,7 @@ export default function AdminReportsClient() {
                         <p className="text-xs text-slate-500">{c.interpreterEmail}</p>
                       </td>
                       <td className="py-3 pr-4">{c.languagePair}</td>
+                      <td className="py-3 pr-4 text-slate-500 text-xs">{c.costCenter || '—'}</td>
                       <td className="py-3 pr-4 text-right">{c.durationMin} min</td>
                       <td className="py-3 pr-4 text-right">{formatCents(c.clientChargeCents)}</td>
                       <td className="py-3 text-right">{formatCents(c.interpreterPayCents)}</td>

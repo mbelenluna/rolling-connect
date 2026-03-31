@@ -122,6 +122,9 @@ export async function POST(
       await deleteDailyRoom(roomName);
     }
 
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ userId, action: 'call_ended', entityType: 'call', entityId: id, metadata: { durationSeconds, jobId: call.jobId, endedBy: role } });
+
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('End call error:', e);
