@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.build]
+cmds = ["npm ci", "npx prisma generate", "NODE_OPTIONS='--max-old-space-size=1536' npx next build"]
+
+[start]
+cmd = "npm start"
