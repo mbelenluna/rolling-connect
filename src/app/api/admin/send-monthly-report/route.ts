@@ -161,6 +161,8 @@ export async function POST(req: Request) {
         },
       ],
     });
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ action: 'report_sent', entityType: 'report', metadata: { period: `${year}-${String(month).padStart(2,'0')}`, recipients: recipients.length, filename } });
     return NextResponse.json({ ok: true, sentTo: recipients.length, filename });
   } catch (err) {
     console.error('Send monthly report error:', err);

@@ -26,6 +26,9 @@ export async function POST(
       data: { rejectedAt: new Date(), approvedAt: null },
     });
 
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ userId: (session.user as { id?: string }).id, action: 'user_rejected', entityType: 'user', entityId: id, metadata: { targetEmail: user.email, targetRole: 'client' } });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Reject client error:', err);

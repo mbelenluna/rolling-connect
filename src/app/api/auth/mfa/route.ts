@@ -26,5 +26,8 @@ export async function POST(req: Request) {
   await prisma.user.update({ where: { id: userId }, data: { mfaEnabled: enabled } });
   if (!enabled) await prisma.mfaCode.deleteMany({ where: { userId } });
 
+  const { logAudit } = await import('@/lib/audit');
+  logAudit({ userId, action: enabled ? 'mfa_enabled' : 'mfa_disabled', entityType: 'user', entityId: userId });
+
   return NextResponse.json({ ok: true, mfaEnabled: enabled });
 }

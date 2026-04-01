@@ -31,5 +31,9 @@ export async function POST(req: Request) {
       create: { key: 'system_banner', value: banner.trim() },
     });
   }
+
+  const { logAudit } = await import('@/lib/audit');
+  logAudit({ userId: (session?.user as { id?: string })?.id, action: 'banner_changed', entityType: 'system', metadata: { action: banner.trim() === '' ? 'cleared' : 'set', preview: banner.trim().slice(0, 80) } });
+
   return NextResponse.json({ ok: true });
 }

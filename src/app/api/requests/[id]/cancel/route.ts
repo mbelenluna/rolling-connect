@@ -32,5 +32,7 @@ export async function POST(
   if (!job) return NextResponse.json({ error: 'No active job to cancel' }, { status: 400 });
 
   const ok = await cancelJobAndRequest(job.id);
+  const { logAudit } = await import('@/lib/audit');
+  logAudit({ userId, action: 'request_cancelled', entityType: 'request', entityId: requestId, metadata: { jobId: job.id } });
   return NextResponse.json({ success: ok, message: 'Call canceled. Interpreter is now free.' });
 }

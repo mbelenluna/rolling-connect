@@ -44,6 +44,9 @@ export async function POST(
       data: { startedAt: new Date() },
     });
 
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ userId, action: 'call_started', entityType: 'call', entityId: id, metadata: { jobId: call.jobId, requestId: call.job.requestId, serviceType: call.job.request.serviceType } });
+
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('[mark-started] error:', e);

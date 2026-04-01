@@ -81,5 +81,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     io?.to(`user:${call.job.assignedInterpreterId}`).emit('call_ended', { jobId: call.jobId, durationSeconds: billableDurationSeconds });
   }
 
+  const { logAudit } = await import('@/lib/audit');
+  logAudit({ userId, action: 'call_ended', entityType: 'call', entityId: callId, metadata: { durationSeconds: billableDurationSeconds, jobId: call.jobId, endedBy: 'interpreter', reason: 'interpreter_ended_for_all' } });
+
   return NextResponse.json({ success: true });
 }

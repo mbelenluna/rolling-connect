@@ -32,6 +32,9 @@ export async function POST(
       console.error('Approval email failed:', e)
     );
 
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ userId: (session.user as { id?: string }).id, action: 'user_approved', entityType: 'user', entityId: id, metadata: { targetEmail: user.email, targetRole: 'interpreter' } });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Approve interpreter error:', err);

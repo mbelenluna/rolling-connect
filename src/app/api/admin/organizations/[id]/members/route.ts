@@ -42,6 +42,9 @@ export async function POST(
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
+  const { logAudit } = await import('@/lib/audit');
+  logAudit({ userId: (session?.user as { id?: string })?.id, action: 'org_member_assigned', entityType: 'organization', entityId: orgId, metadata: { targetUserId: userId, targetEmail: member.user.email, role, orgName: org.name } });
+
   return NextResponse.json(member);
 }
 

@@ -118,6 +118,9 @@ export async function POST(req: Request) {
       },
     });
 
+    const { logAudit } = await import('@/lib/audit');
+    logAudit({ userId, action: 'request_created', entityType: 'request', entityId: request.id, metadata: { serviceType: data.serviceType, languagePair: `${data.sourceLanguage}→${data.targetLanguage}`, specialty: data.specialty, scheduleType: data.scheduleType, organizationId: data.organizationId, costCenter: data.costCenter } });
+
     if (isAI) {
       const job = await prisma.job.create({
         data: {
