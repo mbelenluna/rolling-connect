@@ -68,7 +68,7 @@ export const translations = {
       'Get connected with a qualified interpreter in minutes. Simple, transparent, and built for professionals.',
     step1Title: 'Create an account',
     step1Desc:
-      'Register on our platform. Accounts get approved quickly so you can start requesting interpretation right away.',
+      'Register on our platform, verify your email address, and set up your payment method.',
     step2Title: 'Request interpretation',
     step2Desc:
       'Choose OPI or VRI, select your language pair, and request now. Add urgency and specialty if needed.',
