@@ -19,6 +19,27 @@ export default function PricingContent() {
         <p className="text-slate-600">{t('pricingSubtitle')}</p>
       </div>
 
+      {/* Enterprise notice */}
+      <div className="mb-6 flex gap-3 items-start bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+        <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+          <p className="text-sm font-semibold text-amber-800 mb-0.5">Enterprise or high-volume client?</p>
+          <p className="text-sm text-amber-700">
+            The rates below apply to standard pay-as-you-go accounts. If your organization requires a
+            contract, volume pricing, or dedicated interpreter pools,{' '}
+            <a
+              href="mailto:info@rolling-translations.com"
+              className="font-semibold underline underline-offset-2 hover:text-amber-900 transition"
+            >
+              contact us at info@rolling-translations.com
+            </a>{' '}
+            and we will work with you on a customized agreement with preferred rates.
+          </p>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[500px]">
