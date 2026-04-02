@@ -119,20 +119,22 @@ export default function HomeContent() {
               </ul>
               <div className="mt-6 p-4 bg-brand-50 border border-brand-200 rounded-xl">
                 <p className="text-slate-700 font-medium mb-2">{t(locale, 'opiPhoneAccess')}</p>
-                <a
-                  href="tel:+16894007175"
-                  className="inline-flex items-center gap-2 text-brand-600 font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 rounded"
-                  aria-label={`Call ${t(locale, 'phoneNumber')} for phone interpretation`}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  {t(locale, 'phoneNumber')}
-                </a>
-                <span className="mx-2 text-slate-500">·</span>
-                <Link href="#how-it-works" className="text-brand-600 font-medium hover:underline">
-                  {t(locale, 'learnPhoneAccess')}
-                </Link>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a
+                    href="tel:+16894007175"
+                    className="inline-flex items-center gap-1.5 text-brand-600 font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 rounded"
+                    aria-label={`Call ${t(locale, 'phoneNumber')} for phone interpretation`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    {t(locale, 'phoneNumber')}
+                  </a>
+                  <span className="text-slate-400 leading-none">·</span>
+                  <Link href="#how-it-works" className="text-brand-600 font-medium hover:underline leading-none">
+                    {t(locale, 'learnPhoneAccess')}
+                  </Link>
+                </div>
               </div>
             </div>
             <div className="flex-1 flex justify-center">
@@ -276,28 +278,28 @@ export default function HomeContent() {
                 titleKey: 'step1Title' as const,
                 descKey: 'step1Desc' as const,
                 icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z',
-                color: 'from-brand-500 to-brand-700',
+                color: 'from-brand-600 to-brand-800',
               },
               {
                 step: '2',
                 titleKey: 'step2Title' as const,
                 descKey: 'step2Desc' as const,
                 icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
-                color: 'from-violet-500 to-violet-700',
+                color: 'from-brand-600 to-brand-800',
               },
               {
                 step: '3',
                 titleKey: 'step3Title' as const,
                 descKey: 'step3Desc' as const,
                 icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
-                color: 'from-emerald-500 to-emerald-700',
+                color: 'from-brand-600 to-brand-800',
               },
               {
                 step: '4',
                 titleKey: 'step4Title' as const,
                 descKey: 'step4Desc' as const,
                 icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z',
-                color: 'from-amber-500 to-orange-600',
+                color: 'from-brand-600 to-brand-800',
               },
             ].map((item) => (
               <div
@@ -323,23 +325,65 @@ export default function HomeContent() {
       </section>
 
       {/* Trust / CTA */}
-      <section className="py-10 sm:py-16 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-slate-600 mb-2">{t(locale, 'trustLine')}</p>
-          <p className="text-slate-500 text-sm mb-6">{t(locale, 'trustSubline')}</p>
-          <Link
-            href="/pricing"
-            className="inline-block text-brand-600 font-semibold hover:underline mb-8"
-          >
-            {t(locale, 'transparentPricing')}
-          </Link>
-          <br />
-          <Link
-            href="/login?register=1"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition shadow-lg shadow-brand-600/25"
-          >
-            {t(locale, 'getStartedToday')}
-          </Link>
+      <section className="py-12 sm:py-20 bg-slate-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          {/* Trust pillars */}
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 mb-12">
+            {[
+              {
+                icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+                label: 'Confidential',
+                sub: 'HIPAA-aware practices',
+              },
+              {
+                icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z',
+                label: 'Certified',
+                sub: 'Vetted professionals',
+              },
+              {
+                icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+                label: 'On-demand',
+                sub: 'Connect in seconds',
+              },
+            ].map((p) => (
+              <div key={p.label} className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-brand-600/10 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={p.icon} />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm sm:text-base">{p.label}</p>
+                  <p className="text-slate-500 text-xs sm:text-sm">{p.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA card */}
+          <div className="bg-brand-600 rounded-2xl px-6 sm:px-12 py-10 text-center shadow-xl shadow-brand-600/20 relative overflow-hidden">
+            {/* Subtle inner glow */}
+            <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+            <div className="relative">
+              <p className="text-white/80 text-sm font-medium uppercase tracking-widest mb-2">{t(locale, 'trustLine')}</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6">{t(locale, 'getStartedToday')}</h2>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  href="/login?register=1"
+                  className="w-full sm:w-auto px-8 py-3.5 bg-white text-brand-700 rounded-xl font-semibold hover:bg-brand-50 transition shadow-md"
+                >
+                  {t(locale, 'getStarted')}
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto px-8 py-3.5 border-2 border-white/40 text-white rounded-xl font-semibold hover:bg-white/10 transition"
+                >
+                  {t(locale, 'transparentPricing')}
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
