@@ -210,6 +210,7 @@ export async function sendInterpreterWelcomeEmail(to: string, name: string): Pro
     <li>Language pair(s) you work with</li>
     <li>Time zone and availability for picking up OPI/VRI calls</li>
     <li>Your CV</li>
+    <li>Interpretation training and/or relevant certifications, e.g., medical, community, or legal interpreting (preferred)</li>
   </ul>
   <p>If your profile meets our requirements, you will be invited to complete an interpretation test to assess your skills. Upon successfully passing the test, your account will be approved and you will be able to begin accepting calls immediately.</p>
   
