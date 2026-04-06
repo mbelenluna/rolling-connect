@@ -12,7 +12,11 @@ type User = {
   createdAt: string;
   languagePairs?: { source: string; target: string }[];
   specialties?: string[];
+  opiRateCents?: number | null;
+  vriRateCents?: number | null;
 };
+
+type RateEdit = { opiRaw: string; vriRaw: string; saving: boolean; error: string };
 
 type Filter = 'all' | 'clients' | 'interpreters';
 
@@ -57,6 +61,65 @@ export default function AdminUsersClient() {
   }, [fetchUsers]);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Rate editing state keyed by interpreter userId
+  const [rateEdits, setRateEdits] = useState<Record<string, RateEdit>>({});
+
+  const openRateEdit = (u: User) => {
+    setRateEdits((prev) => ({
+      ...prev,
+      [u.id]: {
+        opiRaw: u.opiRateCents != null ? (u.opiRateCents / 100).toFixed(2) : '',
+        vriRaw: u.vriRateCents != null ? (u.vriRateCents / 100).toFixed(2) : '',
+        saving: false,
+        error: '',
+      },
+    }));
+  };
+
+  const closeRateEdit = (id: string) => {
+    setRateEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const saveRates = async (id: string) => {
+    const edit = rateEdits[id];
+    if (!edit) return;
+
+    const parseCents = (raw: string): number | null => {
+      if (raw.trim() === '') return null;
+      const n = parseFloat(raw);
+      if (isNaN(n) || n < 0) return NaN;
+      return Math.round(n * 100);
+    };
+
+    const opiRateCents = parseCents(edit.opiRaw);
+    const vriRateCents = parseCents(edit.vriRaw);
+
+    if (isNaN(opiRateCents as number) || isNaN(vriRateCents as number)) {
+      setRateEdits((prev) => ({ ...prev, [id]: { ...prev[id], error: 'Enter a valid amount (e.g. 1.50) or leave blank to clear.' } }));
+      return;
+    }
+
+    setRateEdits((prev) => ({ ...prev, [id]: { ...prev[id], saving: true, error: '' } }));
+    try {
+      const res = await fetch(`/api/admin/interpreters/${id}/rates`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ opiRateCents, vriRateCents }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save rates');
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id ? { ...u, opiRateCents: data.opiRateCents, vriRateCents: data.vriRateCents } : u
+        )
+      );
+      closeRateEdit(id);
+    } catch (err) {
+      setRateEdits((prev) => ({ ...prev, [id]: { ...prev[id], saving: false, error: err instanceof Error ? err.message : 'Failed to save' } }));
+    }
+  };
 
   const clients = users.filter((u) => u.role === 'client');
   const interpreters = users.filter((u) => u.role === 'interpreter');
@@ -168,17 +231,75 @@ export default function AdminUsersClient() {
     );
   };
 
+  const formatRate = (cents: number | null | undefined) =>
+    cents != null ? `$${(cents / 100).toFixed(2)}/min` : '—';
+
   const renderInterpreterRow = (u: User) => {
     const approved = u.approvedAt != null;
     const rejected = u.rejectedAt != null;
     const pending = !approved && !rejected;
     const status = approved ? 'Approved' : rejected ? 'Rejected' : 'Pending';
+    const edit = rateEdits[u.id];
     return (
       <tr key={u.id} className="border-b border-slate-100">
         <td className="p-4">{u.name}</td>
         <td className="p-4">{u.email}</td>
         <td className="p-4 text-slate-600 text-sm max-w-[200px]">{formatLanguagePairs(u.languagePairs ?? [])}</td>
         <td className="p-4 text-slate-600 text-sm max-w-[150px]">{formatSpecialties(u.specialties ?? [])}</td>
+        <td className="p-4">
+          {edit ? (
+            <div className="flex flex-col gap-1.5 min-w-[180px]">
+              <label className="text-xs text-slate-500 font-medium">OPI rate ($/min)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 1.50"
+                value={edit.opiRaw}
+                onChange={(e) => setRateEdits((prev) => ({ ...prev, [u.id]: { ...prev[u.id], opiRaw: e.target.value } }))}
+                className="w-full px-2 py-1 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+              />
+              <label className="text-xs text-slate-500 font-medium">VRI rate ($/min)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 2.00"
+                value={edit.vriRaw}
+                onChange={(e) => setRateEdits((prev) => ({ ...prev, [u.id]: { ...prev[u.id], vriRaw: e.target.value } }))}
+                className="w-full px-2 py-1 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+              />
+              {edit.error && <p className="text-xs text-red-600">{edit.error}</p>}
+              <div className="flex gap-2 mt-0.5">
+                <button
+                  onClick={() => saveRates(u.id)}
+                  disabled={edit.saving}
+                  className="flex-1 px-2 py-1 text-xs bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {edit.saving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => closeRateEdit(u.id)}
+                  disabled={edit.saving}
+                  className="flex-1 px-2 py-1 text-xs border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-slate-700">OPI: <span className="font-medium">{formatRate(u.opiRateCents)}</span></span>
+              <span className="text-sm text-slate-700">VRI: <span className="font-medium">{formatRate(u.vriRateCents)}</span></span>
+              <button
+                onClick={() => openRateEdit(u)}
+                className="mt-1 text-xs text-brand-600 hover:text-brand-700 hover:underline text-left"
+              >
+                Edit rates
+              </button>
+            </div>
+          )}
+        </td>
         <td className="p-4">
           <span className={`text-sm font-medium ${approved ? 'text-green-600' : rejected ? 'text-red-600' : 'text-amber-600'}`}>{status}</span>
         </td>
@@ -295,6 +416,7 @@ export default function AdminUsersClient() {
                   <th className="text-left p-4 font-medium text-slate-900">Email</th>
                   <th className="text-left p-4 font-medium text-slate-900">Language Pairs</th>
                   <th className="text-left p-4 font-medium text-slate-900">Specialties</th>
+                  <th className="text-left p-4 font-medium text-slate-900">Rates</th>
                   <th className="text-left p-4 font-medium text-slate-900">Status</th>
                   <th className="text-left p-4 font-medium text-slate-900">Created</th>
                   <th className="text-left p-4 font-medium text-slate-900">Actions</th>

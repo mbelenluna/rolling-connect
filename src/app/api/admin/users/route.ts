@@ -21,6 +21,8 @@ export async function GET() {
       createdAt: Date;
       languagePairs?: { source: string; target: string }[];
       specialties?: string[];
+      opiRateCents?: number | null;
+      vriRateCents?: number | null;
     }[];
     try {
       const raw = await prisma.user.findMany({
@@ -32,7 +34,7 @@ export async function GET() {
           approvedAt: true,
           rejectedAt: true,
           createdAt: true,
-          interpreterProfile: { select: { languagePairs: true, specialties: true } },
+          interpreterProfile: { select: { languagePairs: true, specialties: true, opiRateCents: true, vriRateCents: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -52,6 +54,8 @@ export async function GET() {
           createdAt: u.createdAt,
           languagePairs,
           specialties,
+          opiRateCents: profile?.opiRateCents ?? null,
+          vriRateCents: profile?.vriRateCents ?? null,
         };
       });
     } catch (prismaErr) {

@@ -153,6 +153,8 @@ model InterpreterProfile {
   yearsExperience     Int?      @map("years_experience")
   securityClearance   Boolean   @default(false) @map("security_clearance")
   gender             String?
+  opiRateCents        Int?      @map("opi_rate_cents")
+  vriRateCents        Int?      @map("vri_rate_cents")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
