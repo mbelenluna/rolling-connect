@@ -14,7 +14,7 @@
 import { prisma } from './prisma';
 
 // Re-export client-safe functions for server-side use
-export { isSpanish, clientChargeCents, interpreterPayCents, formatCents, CLIENT_PRICING_TABLE } from './billing-rates';
+export { isSpanish, clientChargeCents, interpreterPayCents, interpreterPayCentsWithRates, formatCents, CLIENT_PRICING_TABLE } from './billing-rates';
 
 // --- Billing gate: require active billing for paid platform actions ---
 

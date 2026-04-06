@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { interpreterPayCents, formatCents } from '@/lib/billing-rates';
+import { formatCents } from '@/lib/billing-rates';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
 
 type Job = {
   id: string;
   requestId: string;
+  paymentCents: number;
   request: {
     sourceLanguage: string;
     targetLanguage: string;
@@ -34,10 +35,7 @@ export default function InterpreterHistoryClient() {
 
   if (loading) return <div className="text-slate-600">Loading…</div>;
 
-  const totalPay = jobs.reduce((sum, j) => {
-    const d = j.call?.billableDurationSeconds ?? j.call?.durationSeconds ?? 0;
-    return sum + (d ? interpreterPayCents(d, j.request.targetLanguage) : 0);
-  }, 0);
+  const totalPay = jobs.reduce((sum, j) => sum + (j.paymentCents ?? 0), 0);
 
   return (
     <div>
@@ -53,7 +51,6 @@ export default function InterpreterHistoryClient() {
           jobs.map((j) => {
             const duration = j.call?.billableDurationSeconds ?? j.call?.durationSeconds ?? 0;
             const mins = duration ? Math.ceil(duration / 60) : 0;
-            const pay = duration ? interpreterPayCents(duration, j.request.targetLanguage) : 0;
             return (
               <div key={j.id} className="p-4 bg-white rounded-xl border border-slate-200">
                 <div className="flex items-center justify-between">
@@ -66,7 +63,7 @@ export default function InterpreterHistoryClient() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-slate-900">{formatCents(pay)}</p>
+                    <p className="font-medium text-slate-900">{formatCents(j.paymentCents ?? 0)}</p>
                     <p className="text-xs text-slate-500">Earnings</p>
                   </div>
                 </div>

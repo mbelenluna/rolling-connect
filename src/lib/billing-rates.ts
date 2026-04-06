@@ -37,9 +37,32 @@ export function interpreterPayCents(
   if (interpretationType === 'ai') return 0;
   const minutes = Math.ceil(durationSeconds / 60);
   const perMinCents = isSpanish(targetLanguage) ? 25 : 45;
-  const pay = minutes * perMinCents;
-  const minCents = 250; // $2.50
-  return Math.max(pay, minCents);
+  // No minimum charge for interpreters
+  return minutes * perMinCents;
+}
+
+/**
+ * Calculate interpreter pay using their individually-set rates (from admin panel).
+ * Falls back to the default rate if no individual rate is set.
+ * No minimum charge applies.
+ */
+export function interpreterPayCentsWithRates(
+  durationSeconds: number,
+  serviceType: string,
+  targetLanguage: string,
+  opiRateCents: number | null | undefined,
+  vriRateCents: number | null | undefined,
+  interpretationType: 'human' | 'ai' = 'human'
+): number {
+  if (interpretationType === 'ai') return 0;
+  const minutes = Math.ceil(durationSeconds / 60);
+  const isOpi = serviceType?.toUpperCase() === 'OPI';
+  const individualRate = isOpi ? opiRateCents : vriRateCents;
+  // Use individual rate if set, otherwise fall back to default (no minimum)
+  const perMinCents = individualRate != null
+    ? individualRate
+    : isSpanish(targetLanguage) ? 25 : 45;
+  return minutes * perMinCents;
 }
 
 export function formatCents(cents: number): string {

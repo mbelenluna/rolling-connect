@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { clientChargeCents, interpreterPayCents } from '@/lib/billing';
+import { clientChargeCents, interpreterPayCentsWithRates } from '@/lib/billing';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,30 +22,40 @@ export async function GET(req: Request) {
   const interpreterId = searchParams.get('interpreterId') || undefined;
   const month = searchParams.get('month') || undefined;
 
-  const jobs = await prisma.job.findMany({
-    where: { status: 'completed' },
-    include: {
-      request: {
-        select: {
-          id: true,
-          targetLanguage: true,
-          sourceLanguage: true,
-          serviceType: true,
-          scheduleType: true,
-          specialty: true,
-          interpretationType: true,
-          costCenter: true,
-          createdAt: true,
-          createdByUserId: true,
-          createdBy: { select: { id: true, name: true, email: true } },
+  const [jobs, interpreterProfiles] = await Promise.all([
+    prisma.job.findMany({
+      where: { status: 'completed' },
+      include: {
+        request: {
+          select: {
+            id: true,
+            targetLanguage: true,
+            sourceLanguage: true,
+            serviceType: true,
+            scheduleType: true,
+            specialty: true,
+            interpretationType: true,
+            costCenter: true,
+            createdAt: true,
+            createdByUserId: true,
+            createdBy: { select: { id: true, name: true, email: true } },
+          },
         },
+        call: true,
+        assignedInterpreter: { select: { id: true, name: true, email: true } },
       },
-      call: true,
-      assignedInterpreter: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 500,
-  });
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+    }),
+    prisma.interpreterProfile.findMany({
+      select: { userId: true, opiRateCents: true, vriRateCents: true },
+    }),
+  ]);
+
+  // Build a map of interpreter userId → their rates
+  const interpreterRateMap = new Map(
+    interpreterProfiles.map((p) => [p.userId, { opiRateCents: p.opiRateCents, vriRateCents: p.vriRateCents }])
+  );
 
   type CallRow = {
     id: string;
@@ -92,7 +102,14 @@ export async function GET(req: Request) {
         durationSeconds: duration,
         durationMin: Math.ceil(duration / 60),
         clientChargeCents: clientChargeCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
-        interpreterPayCents: interpreterPayCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
+        interpreterPayCents: interpreterPayCentsWithRates(
+          duration,
+          j.request.serviceType,
+          targetLang,
+          j.assignedInterpreterId ? (interpreterRateMap.get(j.assignedInterpreterId)?.opiRateCents ?? null) : null,
+          j.assignedInterpreterId ? (interpreterRateMap.get(j.assignedInterpreterId)?.vriRateCents ?? null) : null,
+          (j.request.interpretationType as 'human' | 'ai') ?? 'human'
+        ),
         monthKey,
         serviceType: j.request.serviceType,
         scheduleType: j.request.scheduleType,
