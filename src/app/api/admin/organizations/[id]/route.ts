@@ -6,8 +6,14 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
+const rateField = z.number().int().nonnegative().nullable().optional();
+
 const patchSchema = z.object({
-  phoneClientId: z.string().length(6).regex(/^[0-9]+$/).nullable(),
+  phoneClientId: z.string().length(6).regex(/^[0-9]+$/).nullable().optional(),
+  opiRateCentsSpanish: rateField,
+  vriRateCentsSpanish: rateField,
+  opiRateCentsOther: rateField,
+  vriRateCentsOther: rateField,
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +30,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const org = await prisma.organization.update({
       where: { id },
-      data: { phoneClientId: data.phoneClientId === null ? null : data.phoneClientId ?? undefined },
+      data: {
+        ...(data.phoneClientId !== undefined ? { phoneClientId: data.phoneClientId ?? undefined } : {}),
+        ...(data.opiRateCentsSpanish !== undefined ? { opiRateCentsSpanish: data.opiRateCentsSpanish } : {}),
+        ...(data.vriRateCentsSpanish !== undefined ? { vriRateCentsSpanish: data.vriRateCentsSpanish } : {}),
+        ...(data.opiRateCentsOther !== undefined ? { opiRateCentsOther: data.opiRateCentsOther } : {}),
+        ...(data.vriRateCentsOther !== undefined ? { vriRateCentsOther: data.vriRateCentsOther } : {}),
+      },
     });
 
     return NextResponse.json(org);

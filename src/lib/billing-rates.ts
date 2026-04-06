@@ -65,6 +65,37 @@ export function interpreterPayCentsWithRates(
   return minutes * perMinCents;
 }
 
+/**
+ * Calculate client charge using per-organization rates set in the admin panel.
+ * Falls back to default rates if no org-specific rate is set.
+ * AI interpretation always uses fixed platform rates.
+ */
+export function clientChargeCentsWithRates(
+  durationSeconds: number,
+  serviceType: string,
+  targetLanguage: string,
+  opiRateCentsSpanish: number | null | undefined,
+  vriRateCentsSpanish: number | null | undefined,
+  opiRateCentsOther: number | null | undefined,
+  vriRateCentsOther: number | null | undefined,
+  interpretationType: 'human' | 'ai' = 'human'
+): number {
+  const minutes = Math.ceil(durationSeconds / 60);
+  if (interpretationType === 'ai') {
+    const perMinCents = isSpanish(targetLanguage) ? 49 : 59;
+    return Math.max(minutes * perMinCents, 250);
+  }
+  const isOpi = serviceType?.toUpperCase() === 'OPI';
+  const isSpanishLang = isSpanish(targetLanguage);
+  let perMinCents: number;
+  if (isSpanishLang) {
+    perMinCents = isOpi ? (opiRateCentsSpanish ?? 89) : (vriRateCentsSpanish ?? 89);
+  } else {
+    perMinCents = isOpi ? (opiRateCentsOther ?? 119) : (vriRateCentsOther ?? 119);
+  }
+  return Math.max(minutes * perMinCents, 500);
+}
+
 export function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }

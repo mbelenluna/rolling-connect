@@ -12,6 +12,10 @@ type Org = {
   id: string;
   name: string;
   billingEmail: string | null;
+  opiRateCentsSpanish: number | null;
+  vriRateCentsSpanish: number | null;
+  opiRateCentsOther: number | null;
+  vriRateCentsOther: number | null;
   members: OrgMember[];
 };
 
@@ -41,6 +45,47 @@ export default function AdminOrganizationsPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [addMsg, setAddMsg] = useState('');
   const [userSearch, setUserSearch] = useState('');
+
+  // Client rate editing state
+  const [rateFields, setRateFields] = useState({ opiSpanish: '', vriSpanish: '', opiOther: '', vriOther: '' });
+  const [rateSaving, setRateSaving] = useState(false);
+  const [rateMsg, setRateMsg] = useState('');
+
+  const handleSaveRates = async () => {
+    if (!selectedOrg) return;
+    const parseCents = (raw: string): number | null => {
+      if (raw.trim() === '') return null;
+      const n = parseFloat(raw);
+      return isNaN(n) || n < 0 ? NaN : Math.round(n * 100);
+    };
+    const vals = {
+      opiRateCentsSpanish: parseCents(rateFields.opiSpanish),
+      vriRateCentsSpanish: parseCents(rateFields.vriSpanish),
+      opiRateCentsOther:   parseCents(rateFields.opiOther),
+      vriRateCentsOther:   parseCents(rateFields.vriOther),
+    };
+    if (Object.values(vals).some((v) => isNaN(v as number))) {
+      setRateMsg('Please enter valid amounts (e.g. 0.89) or leave blank to use default rates.');
+      return;
+    }
+    setRateSaving(true);
+    setRateMsg('');
+    try {
+      const res = await fetch(`/api/admin/organizations/${selectedOrg.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vals),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save rates');
+      setRateMsg('Rates saved.');
+      await fetchOrgs();
+    } catch (e) {
+      setRateMsg(e instanceof Error ? e.message : 'Failed to save rates');
+    } finally {
+      setRateSaving(false);
+    }
+  };
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
@@ -123,7 +168,17 @@ export default function AdminOrganizationsPage() {
             {orgs.map((org) => (
               <button
                 key={org.id}
-                onClick={() => { setSelectedOrg(org); setAddMsg(''); }}
+                onClick={() => {
+                  setSelectedOrg(org);
+                  setAddMsg('');
+                  setRateMsg('');
+                  setRateFields({
+                    opiSpanish: org.opiRateCentsSpanish != null ? (org.opiRateCentsSpanish / 100).toFixed(2) : '',
+                    vriSpanish: org.vriRateCentsSpanish != null ? (org.vriRateCentsSpanish / 100).toFixed(2) : '',
+                    opiOther:   org.opiRateCentsOther   != null ? (org.opiRateCentsOther   / 100).toFixed(2) : '',
+                    vriOther:   org.vriRateCentsOther   != null ? (org.vriRateCentsOther   / 100).toFixed(2) : '',
+                  });
+                }}
                 className={`w-full text-left px-4 py-3 rounded-xl border transition ${
                   selectedOrg?.id === org.id
                     ? 'border-brand-500 bg-brand-50'
@@ -188,6 +243,58 @@ export default function AdminOrganizationsPage() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Client rates */}
+                <div className="pt-4 border-t border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Client Rates ($/min)</p>
+                  <p className="text-xs text-slate-400 mb-3">Leave blank to use default platform rates. Changes apply to future billing calculations.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Spanish OPI</label>
+                      <input type="number" min="0" step="0.01" placeholder="default 0.89"
+                        value={rateFields.opiSpanish}
+                        onChange={(e) => setRateFields((p) => ({ ...p, opiSpanish: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Spanish VRI</label>
+                      <input type="number" min="0" step="0.01" placeholder="default 0.89"
+                        value={rateFields.vriSpanish}
+                        onChange={(e) => setRateFields((p) => ({ ...p, vriSpanish: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">All other languages OPI</label>
+                      <input type="number" min="0" step="0.01" placeholder="default 1.19"
+                        value={rateFields.opiOther}
+                        onChange={(e) => setRateFields((p) => ({ ...p, opiOther: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">All other languages VRI</label>
+                      <input type="number" min="0" step="0.01" placeholder="default 1.19"
+                        value={rateFields.vriOther}
+                        onChange={(e) => setRateFields((p) => ({ ...p, vriOther: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      onClick={handleSaveRates}
+                      disabled={rateSaving}
+                      className="px-4 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      {rateSaving ? 'Saving…' : 'Save Rates'}
+                    </button>
+                    {rateMsg && (
+                      <p className={`text-sm ${rateMsg === 'Rates saved.' ? 'text-green-600' : 'text-red-600'}`}>{rateMsg}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Add member */}

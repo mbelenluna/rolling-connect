@@ -275,9 +275,6 @@ export default function AdminReportsClient() {
           </button>
         </div>
       </div>
-      <p className="text-slate-600 mb-8">
-        Client charges: $0.50/min Spanish, $0.90/min other (min $5). Interpreter pay: $0.25/min Spanish, $0.45/min other (min $2.50).
-      </p>
 
       {data.byMonth.length === 0 ? (
         <p className="text-slate-500">No completed calls yet.</p>

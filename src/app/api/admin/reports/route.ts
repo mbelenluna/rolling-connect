@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { clientChargeCents, interpreterPayCentsWithRates } from '@/lib/billing';
+import { clientChargeCentsWithRates, interpreterPayCentsWithRates } from '@/lib/billing';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const interpreterId = searchParams.get('interpreterId') || undefined;
   const month = searchParams.get('month') || undefined;
 
-  const [jobs, interpreterProfiles] = await Promise.all([
+  const [jobs, interpreterProfiles, organizations] = await Promise.all([
     prisma.job.findMany({
       where: { status: 'completed' },
       include: {
@@ -38,6 +38,7 @@ export async function GET(req: Request) {
             costCenter: true,
             createdAt: true,
             createdByUserId: true,
+            organizationId: true,
             createdBy: { select: { id: true, name: true, email: true } },
           },
         },
@@ -50,11 +51,18 @@ export async function GET(req: Request) {
     prisma.interpreterProfile.findMany({
       select: { userId: true, opiRateCents: true, vriRateCents: true },
     }),
+    prisma.organization.findMany({
+      select: { id: true, opiRateCentsSpanish: true, vriRateCentsSpanish: true, opiRateCentsOther: true, vriRateCentsOther: true },
+    }),
   ]);
 
   // Build a map of interpreter userId → their rates
   const interpreterRateMap = new Map(
     interpreterProfiles.map((p) => [p.userId, { opiRateCents: p.opiRateCents, vriRateCents: p.vriRateCents }])
+  );
+  // Build a map of organizationId → client rates
+  const orgRateMap = new Map(
+    organizations.map((o) => [o.id, { opiRateCentsSpanish: o.opiRateCentsSpanish, vriRateCentsSpanish: o.vriRateCentsSpanish, opiRateCentsOther: o.opiRateCentsOther, vriRateCentsOther: o.vriRateCentsOther }])
   );
 
   type CallRow = {
@@ -101,7 +109,10 @@ export async function GET(req: Request) {
         languagePair: `${j.request.sourceLanguage} → ${j.request.targetLanguage}`,
         durationSeconds: duration,
         durationMin: Math.ceil(duration / 60),
-        clientChargeCents: clientChargeCents(duration, targetLang, (j.request.interpretationType as 'human' | 'ai') ?? 'human'),
+        clientChargeCents: (() => {
+          const orgRates = j.request.organizationId ? orgRateMap.get(j.request.organizationId) : undefined;
+          return clientChargeCentsWithRates(duration, j.request.serviceType, targetLang, orgRates?.opiRateCentsSpanish, orgRates?.vriRateCentsSpanish, orgRates?.opiRateCentsOther, orgRates?.vriRateCentsOther, (j.request.interpretationType as 'human' | 'ai') ?? 'human');
+        })(),
         interpreterPayCents: interpreterPayCentsWithRates(
           duration,
           j.request.serviceType,

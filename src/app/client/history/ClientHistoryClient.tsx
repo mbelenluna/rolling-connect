@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { clientChargeCents, formatCents } from '@/lib/billing-rates';
+import { clientChargeCentsWithRates, formatCents } from '@/lib/billing-rates';
 import { jsPDF } from 'jspdf';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, type TranslationKeys } from '@/lib/translations';
@@ -43,13 +43,20 @@ export default function ClientHistoryClient() {
   const [endDate, setEndDate] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const logoImageRef = useRef<HTMLImageElement | null>(null);
+  const [orgRates, setOrgRates] = useState<{
+    opiRateCentsSpanish: number | null;
+    vriRateCentsSpanish: number | null;
+    opiRateCentsOther: number | null;
+    vriRateCentsOther: number | null;
+  }>({ opiRateCentsSpanish: null, vriRateCentsSpanish: null, opiRateCentsOther: null, vriRateCentsOther: null });
 
-  // Preload logo when page loads so PDF generation is fast (avoids blocking on slow networks/ngrok)
+  // Preload logo and fetch org rates on mount
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => { logoImageRef.current = img; };
     img.src = '/rolling-translations-logo.png';
+    fetch('/api/client/rates').then((r) => r.json()).then(setOrgRates).catch(() => {});
     return () => { logoImageRef.current = null; };
   }, []);
 
@@ -83,7 +90,7 @@ export default function ClientHistoryClient() {
   const totalCents = requests.reduce((sum, r) => {
     const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
     const duration = job?.call?.billableDurationSeconds ?? job?.call?.durationSeconds ?? 0;
-    return sum + (duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0);
+    return sum + (duration > 0 ? clientChargeCentsWithRates(duration, r.serviceType, r.targetLanguage, orgRates.opiRateCentsSpanish, orgRates.vriRateCentsSpanish, orgRates.opiRateCentsOther, orgRates.vriRateCentsOther, r.interpretationType ?? 'human') : 0);
   }, 0);
 
   const downloadPdf = async () => {
@@ -161,7 +168,7 @@ export default function ClientHistoryClient() {
         const call = job?.call;
         const duration = call?.billableDurationSeconds ?? call?.durationSeconds ?? 0;
         const mins = duration ? Math.ceil(duration / 60) : 0;
-        const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
+        const charge = duration > 0 ? clientChargeCentsWithRates(duration, r.serviceType, r.targetLanguage, orgRates.opiRateCentsSpanish, orgRates.vriRateCentsSpanish, orgRates.opiRateCentsOther, orgRates.vriRateCentsOther, r.interpretationType ?? 'human') : 0;
         const dateStr = call?.endedAt
           ? new Date(call.endedAt).toLocaleDateString()
           : new Date(r.createdAt).toLocaleDateString();
@@ -273,7 +280,7 @@ export default function ClientHistoryClient() {
             const job = r.jobs?.find((j) => j.call) ?? r.jobs?.[0];
             const duration = job?.call?.billableDurationSeconds ?? job?.call?.durationSeconds ?? 0;
             const mins = duration ? Math.ceil(duration / 60) : 0;
-            const charge = duration > 0 ? clientChargeCents(duration, r.targetLanguage, r.interpretationType ?? 'human') : 0;
+            const charge = duration > 0 ? clientChargeCentsWithRates(duration, r.serviceType, r.targetLanguage, orgRates.opiRateCentsSpanish, orgRates.vriRateCentsSpanish, orgRates.opiRateCentsOther, orgRates.vriRateCentsOther, r.interpretationType ?? 'human') : 0;
             const rating = job?.call?.clientRating;
             const comments = job?.call?.clientComments;
             return (

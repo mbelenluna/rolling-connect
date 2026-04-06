@@ -109,9 +109,13 @@ model Organization {
   phoneClientId String?  @unique @map("phone_client_id")  // For IVR: caller enters this to identify org (e.g. 6–8 digits)
   billingEmail  String?  @map("billing_email")
   billingAddress Json?   @map("billing_address")
-  costCenters   Json?    @map("cost_centers")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  costCenters          Json?    @map("cost_centers")
+  opiRateCentsSpanish  Int?     @map("opi_rate_cents_spanish")
+  vriRateCentsSpanish  Int?     @map("vri_rate_cents_spanish")
+  opiRateCentsOther    Int?     @map("opi_rate_cents_other")
+  vriRateCentsOther    Int?     @map("vri_rate_cents_other")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   members       OrganizationMember[]
   requests      InterpretationRequest[]
